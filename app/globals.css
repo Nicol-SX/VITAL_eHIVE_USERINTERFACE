@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --foreground-rgb: 0, 0, 0;
+    --background-start-rgb: 214, 219, 220;
+    --background-end-rgb: 255, 255, 255;
+    --primary: #1976d2;
+    --primary-light: #42a5f5;
+    --primary-dark: #1565c0;
+    --secondary: #9c27b0;
+    --error: #d32f2f;
+    --warning: #ed6c02;
+    --info: #0288d1;
+    --success: #2e7d32;
+  }
+
+  body {
+    @apply text-gray-900 antialiased;
+  }
+
+  /* Material Design Typography */
+  h1 {
+    @apply text-5xl font-light leading-tight;
+  }
+
+  h2 {
+    @apply text-4xl font-light leading-tight;
+  }
+
+  h3 {
+    @apply text-2xl font-normal leading-normal;
+  }
+
+  h4 {
+    @apply text-xl font-medium leading-normal;
+  }
+
+  h5 {
+    @apply text-lg font-medium leading-normal;
+  }
+
+  h6 {
+    @apply text-base font-medium leading-normal;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-800 text-white rounded hover:bg-blue-700 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors;
+  }
+
+  /* Material Design Elevation (Shadow) Classes */
+  .elevation-1 {
+    box-shadow: 0 2px 1px -1px rgba(0,0,0,0.2), 
+                0 1px 1px 0 rgba(0,0,0,0.14), 
+                0 1px 3px 0 rgba(0,0,0,0.12);
+  }
+
+  .elevation-2 {
+    box-shadow: 0 3px 1px -2px rgba(0,0,0,0.2), 
+                0 2px 2px 0 rgba(0,0,0,0.14), 
+                0 1px 5px 0 rgba(0,0,0,0.12);
+  }
+
+  .elevation-4 {
+    box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2), 
+                0 4px 5px 0 rgba(0,0,0,0.14), 
+                0 1px 10px 0 rgba(0,0,0,0.12);
+  }
+
+  /* Material Design Button */
+  .btn-contained {
+    @apply px-4 py-2 rounded text-white font-medium transition-shadow;
+    background-color: var(--primary);
+  }
+
+  .btn-contained:hover {
+    @apply elevation-2;
+  }
+
+  .btn-outlined {
+    @apply px-4 py-2 rounded font-medium border transition-colors;
+    color: var(--primary);
+    border-color: rgba(25, 118, 210, 0.5);
+  }
+
+  .btn-outlined:hover {
+    @apply bg-blue-50;
+    border-color: var(--primary);
+  }
+
+  .btn-text {
+    @apply px-2 py-1 rounded font-medium transition-colors;
+    color: var(--primary);
+  }
+
+  .btn-text:hover {
+    @apply bg-blue-50;
+  }
+
+  /* Material Design Input */
+  .input-outlined {
+    @apply w-full px-4 py-2 border rounded transition-colors;
+  }
+
+  .input-outlined:focus {
+    @apply outline-none border-blue-500;
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+  }
+
+  /* Material Design Card */
+  .card {
+    @apply bg-white rounded-lg elevation-1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Bootstrap Overrides and Custom Styles */
+:root {
+  --bs-blue: #1e40af;
+}
+
+/* Ensure proper box-sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Basic Bootstrap-like Utilities */
+.btn {
+  display: inline-block;
+  font-weight: 400;
+  text-align: center;
+  vertical-align: middle;
+  user-select: none;
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  border-radius: 0.25rem;
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+    border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* Custom styles for the dashboard */
+.sidebar-icon {
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  margin-bottom: 0.5rem;
+} 

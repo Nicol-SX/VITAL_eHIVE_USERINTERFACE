@@ -1,0 +1,7 @@
+{
+  "/page": "app/page.js",
+  "/batch/page": "app/batch/page.js",
+  "/api/batch/route": "app/api/batch/route.js",
+  "/processes/page": "app/processes/page.js",
+  "/api/processes/route": "app/api/processes/route.js"
+}
