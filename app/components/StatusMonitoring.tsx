@@ -149,7 +149,7 @@ interface Transaction {
 // Add type for sortable columns
 type ProcessSortableColumn = 'insertDate' | 'updateDate' | 'effectiveDate' | 'nric' | 'actionType' | 'personnelArea' | 'status' | 'name' | 'errorMessage';
 type TabType = 'Overview' | 'Processes' | 'Batch';
-type DateRangeOption = 'All Time' | 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 6 months' | 'Last 1 year' | 'Last 2 years' | 'Last 3 years' | 'Last 5 years' | 'Last 10 years';
+type DateRangeOption = 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 6 months' | 'Last 1 year';
 
 // Add sorting function for process data
 const sortProcessData = (data: Process[], currentSortColumn: ProcessSortableColumn, currentSortDirection: 'asc' | 'desc') => {
@@ -183,9 +183,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [searchDate, setSearchDate] = useState('');
   const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false);
-  const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('All Time');
-  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
-  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('Last 7 days');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [sortColumn, setSortColumn] = useState<ProcessSortableColumn>('insertDate');
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(initialBatchId || null);
@@ -205,22 +203,12 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
   const statusOptions = ['Success', 'Failed', 'Pending'];
 
   const dateRangeOptions = [
-    'All Time',
     'Last 7 days',
     'Last 30 days',
     'Last 3 months',
     'Last 6 months',
-    'Last 1 year',
-    'Last 2 years',
-    'Last 3 years',
-    'Last 5 years',
-    'Last 10 years'
+    'Last 1 year'
   ] as const;
-
-  const downloadOptions = [
-    { id: 'batch', label: 'Batch Table' },
-    { id: 'process', label: 'Process Table' }
-  ];
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState<number | null>(null);
@@ -464,38 +452,32 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
   };
 
   // Download CSV handler
-  const handleDownloadCSV = async () => {
-    for (const table of selectedTables) {
-      let endpoint = '';
-      let filename = '';
-      if (table === 'batch') {
-        endpoint = '/hrps-api/HRP/Batches/Download';
-        filename = 'batch_table.csv';
-      } else if (table === 'process') {
-        endpoint = '/hrps-api/HRP/Processes/Download';
-        filename = 'process_table.csv';
-      }
-      if (endpoint) {
-        try {
-          const response = await fetch(endpoint, {
-            method: 'GET',
-          });
-          if (!response.ok) throw new Error('Failed to download CSV');
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          window.URL.revokeObjectURL(url);
-        } catch (err) {
-          alert('Error downloading CSV: ' + (err instanceof Error ? err.message : 'Unknown error'));
-        }
-      }
-    }
-  };
+  function downloadCSV(data: any[], filename = 'table.csv') {
+    if (!data.length) return;
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(','), // header row
+      ...data.map(row =>
+        headers.map(field => {
+          const value = row[field as keyof typeof row];
+          // Escape quotes and commas
+          return `"${String(value ?? '').replace(/"/g, '""')}"`;
+        }).join(',')
+      ),
+    ];
+    const csvContent = csvRows.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
 
   // Add this function inside the StatusMonitoring component, before the return statement
   const handleStatusUpdate = async () => {
@@ -698,7 +680,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
                     : 'font-medium'
                 }`}
               >
-                Processes
+                Processed
                 {activeTab === 'Processes' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
                 )}
@@ -752,8 +734,15 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
               </div>
               <div className="relative">
                 <button 
-                  onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
-                  className="flex items-center space-x-2 text-sm text-[#1a4f82] hover:bg-blue-50 px-3 py-2 rounded-md"
+                  onClick={() => {
+                    if (activeTab === 'Batch') {
+                      downloadCSV(transactions, 'batch_table.csv');
+                    } else if (activeTab === 'Processes') {
+                      downloadCSV(processes, 'process_table.csv');
+                    }
+                  }}
+                  className="flex items-center space-x-2 text-sm text-[#1a4f82] hover:bg-blue-50 px-3 py-2 rounded-md whitespace-nowrap"
+                  aria-label="Download CSV"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -768,65 +757,23 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
         {/* Dropdowns - Outside of table container */}
         {showDateRangeDropdown && (
           <div 
-            className="fixed top-[120px] right-[20px] w-48 bg-white rounded-md shadow-lg border max-h-[400px] overflow-y-auto z-[999999]"
+            className="fixed top-[200px] right-[180px] w-48 bg-white rounded-md shadow-lg border max-h-[400px] overflow-y-auto z-[999999] "
             role="listbox"
             aria-label="Date range options"
           >
             {dateRangeOptions.map((option) => (
               <button
                 key={option}
-                onClick={() => handleDateRangeSelect(option)}
+                onClick={() => handleDateRangeSelect(option as DateRangeOption)}
                 className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
                   selectedDateRange === option ? 'bg-gray-50 text-[#1a4f82]' : 'text-gray-700'
                 }`}
+                role="option"
+                aria-selected={selectedDateRange === option}
               >
                 {option}
               </button>
             ))}
-          </div>
-        )}
-
-        {showDownloadDropdown && (
-          <div 
-            className="fixed top-[120px] right-[20px] w-64 bg-white rounded-md shadow-lg border z-[999999]"
-            role="listbox"
-            aria-label="Download options"
-          >
-            <div className="p-3">
-              <div className="mb-3">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Select table to download:</h3>
-                {downloadOptions.map((option) => (
-                  <label key={option.id} className="flex items-center space-x-2 py-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedTables.includes(option.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedTables([...selectedTables, option.id]);
-                        } else {
-                          setSelectedTables(selectedTables.filter(id => id !== option.id));
-                        }
-                      }}
-                      className="rounded border-gray-300 text-[#1a4f82] focus:ring-[#1a4f82]"
-                    />
-                    <span className="text-sm text-gray-700">{option.label}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="flex justify-end border-t pt-3">
-                <button
-                  onClick={handleDownloadCSV}
-                  disabled={selectedTables.length === 0}
-                  className={`px-3 py-1.5 text-sm rounded-md ${
-                    selectedTables.length === 0
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-[#1a4f82] text-white hover:bg-[#15406c]'
-                  }`}
-                >
-                  Download Selected
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
@@ -1006,14 +953,22 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
                           <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                             {process.personnelArea}
                           </td>
-                          <td className="w-[10%] px-6 py-4 whitespace-nowrap border-r border-gray-200">
-                            <div className="relative">
-                              <span className={`px-3 py-1 text-sm rounded-full inline-flex items-center ${getStatusStyle(process.status).bgColor} ${getStatusStyle(process.status).textColor}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full mr-2 ${getStatusStyle(process.status).dotColor}`}></span>
-                                {getStatusText(process.status)}
-                              </span>
-                            </div>
-                          </td>
+                          <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                          <div className="relative">
+                            <span className={`px-3 py-1 text-sm rounded-full inline-flex items-center ${
+                              process.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                              process.status === 'Fail' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full mr-2 ${
+                                process.status === 'Completed' ? 'bg-green-600' :
+                                process.status === 'Fail' ? 'bg-red-600' :
+                                'bg-yellow-600'
+                              }`}></span>
+                              {process.status || 'Pending'}
+                            </span>
+                          </div>
+                        </td>
                           <td className="w-[20%] px-6 py-4 text-sm text-gray-900 truncate border-r border-gray-200">
                             {process.errorMessage || '-'}
                           </td>

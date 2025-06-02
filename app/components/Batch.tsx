@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // Update interfaces with proper type definitions
 interface ProcessAction {
@@ -135,10 +135,19 @@ interface Transaction {
 // Add type for sortable columns
 type SortableColumn = 'hrpsDateTime' | 'pickupDate' | 'totalCSVFiles' | 'status' | 'createdDate';
 
+// Add a date formatting function
+function formatDate(dateString: string | null | undefined) {
+  if (!dateString) return '-';
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return '-';
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   console.log('🚀 BATCH COMPONENT MOUNTING');
   
-  const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
+  const [activeTab, setActiveTab] = useState<TabType>('Batch');
   console.log('📌 Initial activeTab:', activeTab);
   
   // Add immediate effect to verify component lifecycle
@@ -308,6 +317,29 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     });
   };
 
+  // Update filter function for transactions to search formatted dates
+  const filterTransactions = (transactions: Transaction[]) => {
+    const searchTerm = searchDate.toLowerCase();
+    return transactions.filter((transaction) => {
+      return (
+        searchTerm === '' ||
+        (transaction.hrpsDateTime && (
+          transaction.hrpsDateTime.toLowerCase().includes(searchTerm) ||
+          formatDate(transaction.hrpsDateTime).toLowerCase().includes(searchTerm)
+        )) ||
+        (transaction.pickupDate && (
+          transaction.pickupDate.toLowerCase().includes(searchTerm) ||
+          formatDate(transaction.pickupDate).toLowerCase().includes(searchTerm)
+        )) ||
+        (transaction.createdDate && (
+          transaction.createdDate.toLowerCase().includes(searchTerm) ||
+          formatDate(transaction.createdDate).toLowerCase().includes(searchTerm)
+        )) ||
+        (transaction.status && transaction.status.toLowerCase().includes(searchTerm))
+      );
+    });
+  };
+
   // Update useEffect to include sorting
   useEffect(() => {
     const fetchData = async () => {
@@ -365,8 +397,8 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     }
   }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, activeTab]);
 
-  // Update the filtered transactions to use sorted data
-  const filteredTransactions = sortData(transactions);
+  // Update the filtered transactions to use both filter and sort
+  const filteredTransactions = sortData(filterTransactions(transactions));
 
   // Add a debug effect to monitor state changes
   useEffect(() => {
@@ -450,6 +482,66 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const startItem = page * rowsPerPage + 1;
   const endItem = Math.min((page + 1) * rowsPerPage, totalTransactions);
 
+  const dateButtonRef = useRef<HTMLButtonElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+
+  const downloadButtonRef = useRef<HTMLButtonElement>(null);
+  const [downloadDropdownPos, setDownloadDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+
+  const handleDateButtonClick = () => {
+    if (dateButtonRef.current) {
+      const rect = dateButtonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+    setShowDateRangeDropdown((prev) => !prev);
+  };
+
+  const handleDownloadButtonClick = () => {
+    if (downloadButtonRef.current) {
+      const rect = downloadButtonRef.current.getBoundingClientRect();
+      setDownloadDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+    setShowDownloadDropdown((prev) => !prev);
+  };
+
+  // Download CSV handler for batch
+  const handleDownloadCSV = async () => {
+    for (const table of selectedTables) {
+      let endpoint = '';
+      let filename = '';
+      if (table === 'batch') {
+        endpoint = '/hrps-api/HRP/Batches/Download';
+        filename = 'batch_table.csv';
+      }
+      // Add more tables if needed
+      if (endpoint) {
+        try {
+          const response = await fetch(endpoint, { method: 'GET' });
+          if (!response.ok) throw new Error('Failed to download CSV');
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        } catch (err) {
+          alert('Error downloading CSV: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        }
+      }
+    }
+  };
+
   return (
     <div className="flex h-screen w-full">
       {/* Sidebar - Fixed on left */}
@@ -465,7 +557,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
       </div>
 
       {/* Main Content Area - Flex column layout */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col h-screen relative">
         {/* Header Section - Sticky top */}
         <div className="sticky top-0 z-10 bg-white">
           <div className="border-b">
@@ -478,17 +570,14 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
           <div className="px-4 sm:px-6 border-b">
             <div className="flex flex-wrap sm:flex-nowrap space-x-4 sm:space-x-8">
               <button
-                onClick={() => handleTabChange('Overview')}
-                className={`py-4 px-2 relative ${
-                  activeTab === 'Overview'
-                    ? 'text-[#1a4f82] font-medium'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
+                // Overview tab is greyed out and disabled
+                disabled
+                className={
+                  'py-4 px-2 relative text-gray-400 cursor-not-allowed bg-gray-100'
+                }
               >
                 Overview
-                {activeTab === 'Overview' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
-                )}
+                {/* No underline for Overview since it's disabled */}
               </button>
               <button
                 onClick={() => handleTabChange('Batch')}
@@ -550,7 +639,8 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
             <div className="flex items-center space-x-4 w-full sm:w-auto justify-end">
               <div className="relative">
                 <button 
-                  onClick={() => setShowDateRangeDropdown(!showDateRangeDropdown)}
+                  ref={dateButtonRef}
+                  onClick={handleDateButtonClick}
                   className="flex items-center space-x-2 hover:bg-gray-50 px-3 py-2 rounded-md text-sm"
                   aria-label="Select date range"
                   aria-expanded={showDateRangeDropdown}
@@ -562,31 +652,11 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                {showDateRangeDropdown && (
-                  <div 
-                    className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-[99999] border max-h-[400px] overflow-y-auto" 
-                    role="listbox"
-                    aria-label="Date range options"
-                  >
-                    {dateRangeOptions.map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => handleDateRangeSelect(option as DateRangeOption)}
-                        className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-                          selectedDateRange === option ? 'bg-gray-50 text-[#1a4f82]' : 'text-gray-700'
-                        }`}
-                        role="option"
-                        aria-selected={selectedDateRange === option}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
               <div className="relative">
                 <button 
-                  onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                  ref={downloadButtonRef}
+                  onClick={handleDownloadButtonClick}
                   className="flex items-center space-x-2 text-sm text-[#1a4f82] hover:bg-blue-50 px-3 py-2 rounded-md whitespace-nowrap"
                   aria-label="Download options"
                   aria-expanded={showDownloadDropdown}
@@ -597,242 +667,273 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                   </svg>
                   <span>Download CSV</span>
                 </button>
-                {showDownloadDropdown && (
-                  <div 
-                    className="absolute right-0 mt-1 w-64 bg-white rounded-md shadow-lg z-[99999] border"
-                    role="listbox"
-                    aria-label="Download options"
-                  >
-                    <div className="p-3">
-                      <div className="mb-3">
-                        <h3 className="text-sm font-medium text-gray-700 mb-2">Select table to download:</h3>
-                        {downloadOptions.map((option) => (
-                          <label key={option.id} className="flex items-center space-x-2 py-1">
-                            <input
-                              type="checkbox"
-                              id={`download-${option.id}`}
-                              name={`download-${option.id}`}
-                              checked={selectedTables.includes(option.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedTables([...selectedTables, option.id]);
-                                } else {
-                                  setSelectedTables(selectedTables.filter(id => id !== option.id));
-                                }
-                              }}
-                              className="rounded border-gray-300 text-[#1a4f82] focus:ring-[#1a4f82]"
-                              aria-label={`Download ${option.label}`}
-                            />
-                            <span className="text-sm text-gray-700">{option.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="flex justify-end border-t pt-3">
-                        <button
-                          onClick={() => {/* Add download handler */}}
-                          disabled={selectedTables.length === 0}
-                          className={`px-3 py-1.5 text-sm rounded-md ${
-                            selectedTables.length === 0
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-[#1a4f82] text-white hover:bg-[#15406c]'
-                          }`}
-                          aria-label="Download selected tables"
-                        >
-                          Download Selected
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Table Container - Scrollable area */}
-        <div className="flex-1 overflow-auto">
-          <div className="h-full">
-            <div className="relative">
-              {/* Add table header */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-[#1a4f82] sticky top-0 z-10">
-                    <tr>
-                      <th 
-                        scope="col" 
-                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
-                        onClick={() => handleSort('hrpsDateTime')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>HRPS Date Time</span>
-                          {sortColumn === 'hrpsDateTime' && (
-                            <svg 
-                              className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        scope="col" 
-                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
-                        onClick={() => handleSort('pickupDate')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Pickup Date</span>
-                          {sortColumn === 'pickupDate' && (
-                            <svg 
-                              className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        scope="col" 
-                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
-                        onClick={() => handleSort('totalCSVFiles')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Total CSV Files</span>
-                          {sortColumn === 'totalCSVFiles' && (
-                            <svg 
-                              className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        scope="col" 
-                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
-                        onClick={() => handleSort('status')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Status</span>
-                          {sortColumn === 'status' && (
-                            <svg 
-                              className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        scope="col" 
-                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
-                        onClick={() => handleSort('createdDate')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Created Date</span>
-                          {sortColumn === 'createdDate' && (
-                            <svg 
-                              className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          )}
-                        </div>
-                      </th>
-                      <th scope="col" className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 whitespace-nowrap">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 sm:px-6 py-4 text-center">
-                          <div className="flex items-center justify-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1a4f82]"></div>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : error ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 sm:px-6 py-4 text-center text-red-500">
-                          {error}
-                        </td>
-                      </tr>
-                    ) : filteredTransactions && filteredTransactions.length > 0 ? (
-                      filteredTransactions.map((batch) => (
-                        <tr key={batch.batchJobId} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
-                          <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
-                            {batch.hrpsDateTime || '-'}
-                          </td>
-                          <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
-                            {batch.pickupDate || '-'}
-                          </td>
-                          <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm border border-gray-200">
-                            <button
-                              className="text-[#1a4f82] hover:text-blue-700 font-medium"
-                              onClick={() => {
-                                setSelectedRow(batch.batchJobId);
-                                setShowActionTypes(true);
-                              }}
-                            >
-                              {batch.totalCSVFiles || 0}
-                            </button>
-                          </td>
-                          <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                            <div className="relative">
-                              <span className={`px-3 py-1 text-sm rounded-full inline-flex items-center ${
-                                batch.status === 'Success' ? 'bg-green-100 text-green-800' :
-                                batch.status === 'Fail' ? 'bg-red-100 text-red-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full mr-2 ${
-                                  batch.status === 'Success' ? 'bg-green-600' :
-                                  batch.status === 'Fail' ? 'bg-red-600' :
-                                  'bg-yellow-600'
-                                }`}></span>
-                                {batch.status || 'Pending'}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
-                            {batch.createdDate || '-'}
-                          </td>
-                          <td className="w-[10%] px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                            <button
-                              onClick={() => handleViewTransactionDetails(batch.batchJobId.toString())}
-                              className="text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              View Detailed Transaction
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="px-4 sm:px-6 py-4 text-center text-gray-500">
-                          No data available
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+        {/* Dropdowns rendered here, as siblings to table container */}
+        {showDateRangeDropdown && (
+          <div
+            className="bg-white rounded-md shadow-lg z-[99999] border max-h-[400px] overflow-y-auto"
+            style={{
+              position: 'absolute',
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              width: dropdownPos.width,
+              minWidth: 192, // 12rem
+            }}
+            role="listbox"
+            aria-label="Date range options"
+          >
+            {dateRangeOptions.map((option) => (
+              <button
+                key={option}
+                onClick={() => handleDateRangeSelect(option as DateRangeOption)}
+                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
+                  selectedDateRange === option ? 'bg-gray-50 text-[#1a4f82]' : 'text-gray-700'
+                }`}
+                role="option"
+                aria-selected={selectedDateRange === option}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        )}
+        {showDownloadDropdown && (
+          <div
+            className="bg-white rounded-md shadow-lg z-[99999] border w-64"
+            style={{
+              position: 'absolute',
+              top: downloadDropdownPos.top,
+              left: downloadDropdownPos.left,
+              minWidth: 256, // 16rem
+            }}
+            role="listbox"
+            aria-label="Download options"
+          >
+            <div className="p-3">
+              <div className="mb-3">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Select table to download:</h3>
+                {downloadOptions.map((option) => (
+                  <label key={option.id} className="flex items-center space-x-2 py-1">
+                    <input
+                      type="checkbox"
+                      id={`download-${option.id}`}
+                      name={`download-${option.id}`}
+                      checked={selectedTables.includes(option.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedTables([...selectedTables, option.id]);
+                        } else {
+                          setSelectedTables(selectedTables.filter(id => id !== option.id));
+                        }
+                      }}
+                      className="rounded border-gray-300 text-[#1a4f82] focus:ring-[#1a4f82]"
+                      aria-label={`Download ${option.label}`}
+                    />
+                    <span className="text-sm text-gray-700">{option.label}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex justify-end border-t pt-3">
+                <button
+                  onClick={handleDownloadCSV}
+                  disabled={selectedTables.length === 0}
+                  className={`px-3 py-1.5 text-sm rounded-md ${
+                    selectedTables.length === 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-[#1a4f82] text-white hover:bg-[#15406c]'
+                  }`}
+                  aria-label="Download selected tables"
+                >
+                  Download Selected
+                </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Table Container - Only this scrolls */}
+        <div className="flex-1 min-h-0 relative w-full">
+          <div className="h-full overflow-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-[#1a4f82] sticky top-0 z-10">
+                <tr>
+                  <th 
+                    scope="col" 
+                    className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                    onClick={() => handleSort('hrpsDateTime')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>HRPS Date Time</span>
+                      {sortColumn === 'hrpsDateTime' && (
+                        <svg 
+                          className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                    onClick={() => handleSort('pickupDate')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Pickup Date</span>
+                      {sortColumn === 'pickupDate' && (
+                        <svg 
+                          className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                    onClick={() => handleSort('totalCSVFiles')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Total CSV Files</span>
+                      {sortColumn === 'totalCSVFiles' && (
+                        <svg 
+                          className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Status</span>
+                      {sortColumn === 'status' && (
+                        <svg 
+                          className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                    onClick={() => handleSort('createdDate')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Created Date</span>
+                      {sortColumn === 'createdDate' && (
+                        <svg 
+                          className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th scope="col" className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 whitespace-nowrap">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 sm:px-6 py-4 text-center">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1a4f82]"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 sm:px-6 py-4 text-center text-red-500">
+                      {error}
+                    </td>
+                  </tr>
+                ) : filteredTransactions && filteredTransactions.length > 0 ? (
+                  filteredTransactions.map((batch) => (
+                    <tr key={batch.batchJobId} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                      <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
+                        {formatDate(batch.hrpsDateTime)}
+                      </td>
+                      <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
+                        {formatDate(batch.pickupDate)}
+                      </td>
+                      <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm border border-gray-200">
+                        <button
+                          className="text-[#1a4f82] hover:text-blue-700 font-medium"
+                          onClick={() => {
+                            setSelectedRow(batch.batchJobId);
+                            setShowActionTypes(true);
+                          }}
+                        >
+                          {batch.totalCSVFiles || 0}
+                        </button>
+                      </td>
+                      <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                        <div className="relative">
+                          <span className={`px-3 py-1 text-sm rounded-full inline-flex items-center ${
+                            batch.status === 'Success' ? 'bg-green-100 text-green-800' :
+                            batch.status === 'Fail' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full mr-2 ${
+                              batch.status === 'Success' ? 'bg-green-600' :
+                              batch.status === 'Fail' ? 'bg-red-600' :
+                              'bg-yellow-600'
+                            }`}></span>
+                            {batch.status || 'Pending'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
+                        {formatDate(batch.createdDate)}
+                      </td>
+                      <td className="w-[10%] px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                        <button
+                          onClick={() => handleViewTransactionDetails(batch.batchJobId.toString())}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          View Detailed Transaction
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-4 sm:px-6 py-4 text-center text-gray-500">
+                      No data available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
