@@ -87,9 +87,9 @@ const getStatusText = (status: string): string => {
 // Update getStatusStyle function
 const getStatusStyle = (status: string): { bgColor: string; textColor: string; dotColor: string } => {
   switch (status.toUpperCase()) {
-    case 'SUCCESS':
+    case 'COMPLETED':
       return { bgColor: 'bg-green-100', textColor: 'text-green-800', dotColor: 'bg-green-600' };
-    case 'FAILED':
+    case 'FAIL':
       return { bgColor: 'bg-red-100', textColor: 'text-red-800', dotColor: 'bg-red-600' };
     case 'PENDING':
       return { bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', dotColor: 'bg-yellow-600' };
@@ -953,22 +953,12 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
                           <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                             {process.personnelArea}
                           </td>
-                          <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
-                          <div className="relative">
-                            <span className={`px-3 py-1 text-sm rounded-full inline-flex items-center ${
-                              process.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                              process.status === 'Fail' ? 'bg-red-100 text-red-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full mr-2 ${
-                                process.status === 'Completed' ? 'bg-green-600' :
-                                process.status === 'Fail' ? 'bg-red-600' :
-                                'bg-yellow-600'
-                              }`}></span>
-                              {process.status || 'Pending'}
+                          <td className="w-[10%] px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                            <span className={`px-3 py-1 text-sm rounded-full inline-flex items-center ${getStatusStyle(process.status).bgColor} ${getStatusStyle(process.status).textColor}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full mr-2 ${getStatusStyle(process.status).dotColor}`}></span>
+                              {getStatusText(process.status)}
                             </span>
-                          </div>
-                        </td>
+                          </td>
                           <td className="w-[20%] px-6 py-4 text-sm text-gray-900 truncate border-r border-gray-200">
                             {process.errorMessage || '-'}
                           </td>
