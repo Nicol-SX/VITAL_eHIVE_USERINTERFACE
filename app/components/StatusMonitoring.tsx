@@ -135,6 +135,14 @@
     }
   };
 
+  function formatDate(dateString: string | null | undefined) {
+    if (!dateString) return '-';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '-';
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
   // Update Transaction interface
   interface Transaction {
     id: number;
@@ -198,6 +206,9 @@
     const [processSortColumn, setProcessSortColumn] = useState<ProcessSortableColumn>('insertDate');
     const [processSortDirection, setProcessSortDirection] = useState<'asc' | 'desc'>('desc');
 
+    const totalRecords = activeTab === 'Processes' ? totalProcesses : totalTransactions;
+    const totalPages = Math.ceil(totalRecords / rowsPerPage); 
+
     const dateRangeOptions = [
       'Last 7 days',
       'Last 30 days',
@@ -209,6 +220,7 @@
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedProcessId, setSelectedProcessId] = useState<number | null>(null);
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    const [initialStatus, setInitialStatus] = useState<string | null>(null);
     const [comments, setComments] = useState('');
     const [processComments, setProcessComments] = useState<{[key: number]: { status: string; comments: string }}>({});
 
@@ -731,11 +743,7 @@
                 <div className="relative">
                   <button 
                     onClick={() => {
-                      if (activeTab === 'Batch') {
-                        downloadCSV(transactions, 'batch_table.csv');
-                      } else if (activeTab === 'Processes') {
-                        downloadCSV(processes, 'process_table.csv');
-                      }
+                      downloadCSV(processes, 'process_table.csv');
                     }}
                     className="flex items-center space-x-2 text-sm text-[#1a4f82] hover:bg-blue-50 px-3 py-2 rounded-md whitespace-nowrap"
                     aria-label="Download CSV"
@@ -883,7 +891,7 @@
                           onClick={() => handleSort('personnelArea')}
                         >
                           <div className="flex items-center space-x-1">
-                            <span>Personnel Area</span>
+                            <span>Agency</span>
                             {sortColumn === 'personnelArea' && (
                               <svg 
                                 className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
@@ -934,12 +942,15 @@
                             )}
                           </div>
                         </th>
+                        <th className="w-[10%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={8} className="px-6 py-4 text-center">
+                          <td colSpan={9} className="px-6 py-4 text-center">
                             <div className="flex items-center justify-center">
                               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1a4f82]"></div>
                             </div>
@@ -947,18 +958,18 @@
                         </tr>
                       ) : error ? (
                         <tr>
-                          <td colSpan={8} className="px-6 py-4 text-center text-red-500">
+                          <td colSpan={9} className="px-6 py-4 text-center text-red-500">
                             {error}
                           </td>
                         </tr>
                       ) : processes && processes.length > 0 ? (
-                        sortProcessData(processes, sortColumn, sortDirection).map((process) => (
+                        sortProcessData(processes, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage ).map((process) => (
                           <tr key={process.dataID} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-l border-gray-200">
                               {process.dataID}
                             </td>
                             <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-x border-gray-200">
-                              {process.insertDate}
+                              {formatDate(process.insertDate)}
                             </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                               {process.nric}
@@ -981,12 +992,24 @@
                             <td className="w-[20%] px-6 py-4 text-sm text-gray-900 truncate border-r border-gray-200">
                               {process.errorMessage || '-'}
                             </td>
-                            
+                            <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm border-r border-gray-200">
+                                <button
+                                  onClick={() => {
+                                    setSelectedProcessId(process.dataID);
+                                    setInitialStatus(process.status);
+                                    setIsStatusModalOpen(true);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                  aria-label="Update Status"
+                                >
+                                  Update Status
+                                </button>
+                            </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                          <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                             No data available
                           </td>
                         </tr>
@@ -1028,64 +1051,110 @@
                 </span>
                 <nav className="flex items-center space-x-1">
                   <button
-                    onClick={() => {
-                      if (page > 0) {
-                        setPage(page - 1);
-                      }
-                    }}
+                    onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
                     disabled={page === 0}
-                    className={`p-1 rounded-full ${
-                      page === 0 
-                        ? 'text-gray-300 cursor-not-allowed' 
+                    className={`px-2 py-1 text-sm rounded-md ${
+                      page === 0
+                        ? 'text-gray-300 cursor-not-allowed'
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
+                    aria-label="Previous page"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
+                    &lt;
                   </button>
 
-                  {(activeTab === 'Batch'
-                    ? Array.from({ length: Math.ceil(totalTransactions / rowsPerPage) })
-                    : Array.from({ length: Math.ceil(totalProcesses / rowsPerPage) })
-                  ).map((_, idx) => (
+                  {Array.from({ length: totalPages }).map((_, idx) => (
                     <button
                       key={idx}
-                      onClick={() => {
-                        setPage(idx);
-                      }}
-                      className={`px-3 py-1 text-sm rounded-full ${
+                      onClick={() => setPage(idx)}
+                      className={`px-2 py-1 text-sm rounded-md ${
                         page === idx
                           ? 'bg-[#1a4f82] text-white'
                           : 'text-gray-700 hover:bg-gray-100'
                       }`}
+                      aria-label={`Page ${idx + 1}`}
                     >
                       {idx + 1}
                     </button>
                   ))}
 
                   <button
-                    onClick={() => {
-                      if ((page + 1) * rowsPerPage < (activeTab === 'Batch' ? totalTransactions : totalProcesses)) {
-                        setPage(page + 1);
-                      }
-                    }}
-                    disabled={(page + 1) * rowsPerPage >= (activeTab === 'Batch' ? totalTransactions : totalProcesses)}
-                    className={`p-1 rounded-full ${
-                      (page + 1) * rowsPerPage >= (activeTab === 'Batch' ? totalTransactions : totalProcesses)
+                    onClick={() =>
+                      setPage((prev) => Math.min(prev + 1, totalPages - 1))
+                    }
+                    disabled={page + 1 >= totalPages}
+                    className={`px-2 py-1 text-sm rounded-md ${
+                      page + 1 >= totalPages
                         ? 'text-gray-300 cursor-not-allowed'
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
+                    aria-label="Next page"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    &gt;
+                  </button>
+
+                  <button
+                    onClick={() => setPage(totalPages - 1)}
+                    disabled={page === totalPages - 1}
+                    className={`px-2 py-1 text-sm rounded-md ${
+                      page === totalPages - 1
+                        ? 'text-gray-300 cursor-not-allowed'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    aria-label="Last page"
+                  >
+                    &gt;&gt;
                   </button>
                 </nav>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Modal for Status */}
+        {isStatusModalOpen && selectedProcessId !== null && (
+          <StatusPopup
+            isOpen={true}                        
+            userName="John Doe"                  
+            onClose={() => {
+              setIsStatusModalOpen(false);
+              setSelectedProcessId(null);
+              setInitialStatus(null);
+            }}
+            onSubmit={(newStatus: string, comments?: string) => {
+              // 1) call your POST endpoint
+              fetch('/api/processes/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  dataID: selectedProcessId,
+                  status: newStatus === 'Reviewed' ? 0 : 1,
+                  comment: comments ?? '',
+                  type: 1,
+                }),
+              })
+                .then((res) => {
+                  if (!res.ok) throw new Error('Failed to update status');
+                  return res.json();
+                })
+                .then(() => {
+                  // 2) close popup
+                  setIsStatusModalOpen(false);
+                  setSelectedProcessId(null);
+                  setInitialStatus(null);
+                  // 3) refresh your table
+                  if (selectedBatchId) {
+                    fetchProcessesByBatchId(selectedBatchId);
+                  } else {
+                    fetchAllProcesses();
+                  }
+                })
+                .catch((err) => {
+                  console.error('Error updating status:', err);
+                });
+            }}
+          />
+        )}
       </div>
     );
   }
