@@ -222,6 +222,7 @@
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
     const [initialStatus, setInitialStatus] = useState<string | null>(null);
     const [comments, setComments] = useState('');
+    const [viewCommentText, setViewCommentText] = useState<string | null>(null)
     const [processComments, setProcessComments] = useState<{[key: number]: { status: string; comments: string }}>({});
 
     // Add useEffect to get batchId from URL
@@ -503,6 +504,42 @@
       URL.revokeObjectURL(url);
     }
 
+    // handle Popup submit
+    const handlePopupSubmit = (newStatus: 'Reviewed' | 'Others', fullComment?: string) => {
+      if (selectedProcessId == null) return;
+
+      if (newStatus === 'Others' && fullComment) {
+        setProcessComments(prev => ({
+          ...prev,
+          [selectedProcessId]: { status: newStatus, comments: fullComment }
+        }));
+      }
+
+      // Immediately update the row’s status locally:
+      setProcesses(prev =>
+        prev.map(p =>
+          p.dataID === selectedProcessId ? { ...p, status: newStatus } : p
+        )
+      );
+
+      // Fire‐and‐forget to backend:
+      fetch('/api/processes/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataID: selectedProcessId,
+          status: newStatus === 'Reviewed' ? 0 : 1,
+          comment: fullComment ?? '',
+          type: 1
+        })
+      }).catch(err => console.error('Error updating status:', err));
+
+      // Close popup
+      setIsStatusModalOpen(false);
+      setSelectedProcessId(null);
+      setViewCommentText(null);
+    };
+
 
     // Add this function inside the StatusMonitoring component, before the return statement
     const handleStatusUpdate = async () => {
@@ -546,15 +583,7 @@
       }
     };
 
-    // Add sorting function for processes
-    const handleProcessSort = (column: ProcessSortableColumn) => {
-      if (processSortColumn === column) {
-        setProcessSortDirection(processSortDirection === 'asc' ? 'desc' : 'asc');
-      } else {
-        setProcessSortColumn(column);
-        setProcessSortDirection('desc');
-      }
-    };
+
 
     // Add handleSort function
     const handleSort = (column: ProcessSortableColumn) => {
@@ -1009,21 +1038,34 @@
                             </td>
                             <td className="w-[20%] px-6 py-4 text-sm text-gray-900 truncate border-r border-gray-200">
                               {process.errorMessage || ''}
+                              {processComments[process.dataID]?.comments || ''}
                             </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm border-r border-gray-200">
-                              {process.status.toUpperCase() === 'FAIL' && (
+                              {process.status.toUpperCase() === 'FAIL' ? (
                                 <button
                                   onClick={() => {
                                     setSelectedProcessId(process.dataID);
-                                    setInitialStatus(process.status);
+                                    setViewCommentText(null);
                                     setIsStatusModalOpen(true);
                                   }}
-                                  className="bg-blue-600 bg-blue-700 hover:bg-blue-800 px-3 py-1 rounded-md text-white text-sm font-medium"
+                                  className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm font-medium"
                                   aria-label="Update Status"
                                 >
                                   Update Status
                                 </button>
-                              )}
+                              ) : process.status.toUpperCase() === 'OTHERS' ? (
+                                <button 
+                                  onClick={() => {
+                                    setSelectedProcessId(process.dataID);
+                                    setViewCommentText( processComments[process.dataID]?.comments || '' );
+                                    setIsStatusModalOpen(true);
+                                  }}
+                                  className="bg-gray-500 hover:bg-gray-600 px-3 py-1 rounded-md text-white text-sm font-medium"
+                                  aria-label="View Comment"
+                                >
+                                  View
+                                </button>
+                              ) : null}
                             </td>
                           </tr>
                         ))
@@ -1131,48 +1173,16 @@
           </div>
         </div>
 
-        {/* Modal for Status */}
         {isStatusModalOpen && selectedProcessId !== null && (
           <StatusPopup
-            isOpen={true}                        
-            userName="John Doe"                  
+            isOpen={true}
+            viewComment={viewCommentText || undefined}
             onClose={() => {
               setIsStatusModalOpen(false);
               setSelectedProcessId(null);
-              setInitialStatus(null);
+              setViewCommentText(null);
             }}
-            onSubmit={(newStatus: string, comments?: string) => {
-              // 1) call your POST endpoint
-              fetch('/api/processes/status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  dataID: selectedProcessId,
-                  status: newStatus === 'Reviewed' ? 0 : 1,
-                  comment: comments ?? '',
-                  type: 1,
-                }),
-              })
-                .then((res) => {
-                  if (!res.ok) throw new Error('Failed to update status');
-                  return res.json();
-                })
-                .then(() => {
-                  // 2) close popup
-                  setIsStatusModalOpen(false);
-                  setSelectedProcessId(null);
-                  setInitialStatus(null);
-                  // 3) refresh your table
-                  if (selectedBatchId) {
-                    fetchProcessesByBatchId(selectedBatchId);
-                  } else {
-                    fetchAllProcesses();
-                  }
-                })
-                .catch((err) => {
-                  console.error('Error updating status:', err);
-                });
-            }}
+            onSubmit={handlePopupSubmit}
           />
         )}
       </div>
