@@ -25,7 +25,7 @@ interface ProcessData {
   errorMessage: string;
   name: string;
   action: string | null;
-  batchId?: number;
+  batchJobId?: number;
 }
 
 interface ApiResponse {
@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
     console.log('📦 Sample API Response Items:', apiResponse.data.data.slice(0, 2).map(item => ({
       allFields: item,
       dataID: item.dataID,
-      batchId: item.batchId,
+      batchId: item.batchJobId,
       status: item.status,
       actionType: item.actionType,
       resultData: item.resultData
@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
       batchId,
       sampleData: apiResponse.data.data.slice(0, 2).map(item => ({
         dataID: item.dataID,
-        batchId: item.batchId,
+        batchId: item.batchJobId,
         status: item.status,
         rawItem: item // Log the entire item to see all available fields
       }))
@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
       console.log('🔍 Before filtering - Total items:', filteredData.length);
       
       filteredData = filteredData.filter((item: ProcessData) => {
-        const itemBatchId = item.batchId?.toString();
+        const itemBatchId = item.batchJobId?.toString();
         return itemBatchId === batchId;
       });
       
@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
           errorMessage: item.errorMessage,
           name: item.name,
           action: item.action,
-          batchId: item.batchId
+          batchId: item.batchJobId ?? null,
         })),
         total: apiResponse.data.totalPage * apiResponse.data.dataPerPage // Use total records from API
       }

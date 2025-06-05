@@ -140,7 +140,7 @@
     const d = new Date(dateString);
     if (isNaN(d.getTime())) return '-';
     const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
   // Update Transaction interface
@@ -795,7 +795,7 @@
                           onClick={() => handleSort('personnelNumber')}
                         >
                           <div className="flex items-center space-x-1">
-                            <span>Data ID</span>
+                            <span>Batch ID</span>
                             {sortColumn === 'personnelNumber' && (
                               <svg
                                 className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
@@ -966,7 +966,7 @@
                         sortProcessData(processes, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage ).map((process) => (
                           <tr key={process.dataID} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-l border-gray-200">
-                              {process.dataID}
+                              {process.batchId !== null ? process.batchId : '-'}
                             </td>
                             <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-x border-gray-200">
                               {formatDate(process.insertDate)}
@@ -993,6 +993,7 @@
                               {process.errorMessage || '-'}
                             </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm border-r border-gray-200">
+                              {process.status.toUpperCase() === 'FAIL' && (
                                 <button
                                   onClick={() => {
                                     setSelectedProcessId(process.dataID);
@@ -1004,6 +1005,7 @@
                                 >
                                   Update Status
                                 </button>
+                              )}
                             </td>
                           </tr>
                         ))
