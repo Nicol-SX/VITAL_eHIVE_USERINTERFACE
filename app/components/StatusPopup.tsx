@@ -3,127 +3,131 @@
 import React from 'react';
 
 interface StatusPopupProps {
+  viewComment?: string;
   isOpen: boolean;
   onClose: () => void;
-  /**
-   * onSubmit will be called with two arguments:
-   *   status: the status string (“Reviewed” or “Others”)
-   *   comments: a string of the form "UserName (DD/MM/YYYY HH:MM:SS): actual comment text"
-   */
-  onSubmit: (status: string, comments?: string) => void;
-
-  /**
-   * The name of the user who is typing the comment.
-   * e.g. "Joanne Mok"
-   */
-  userName: string;
+  onSubmit?: (status: 'Reviewed' | 'Others', rawComment?: string) => void;
 }
 
 export default function StatusPopup({
+  viewComment,
   isOpen,
   onClose,
   onSubmit,
-  userName,
 }: StatusPopupProps) {
-  const [selectedStatus, setSelectedStatus] = React.useState('');
-  const [comments, setComments] = React.useState('');
+  // Local state, only used in EDIT MODE:
+  const [selectedStatus, setSelectedStatus] = React.useState<'Reviewed' | 'Others' | ''>('');
+  const [comments, setComments] = React.useState<string>('');
+
+  const isViewMode = viewComment != null;
 
   if (!isOpen) return null;
 
-  // Helper to format a Date object as "DD/MM/YYYY HH:MM:SS"
-  const formatDateTime = (date: Date) => {
-    const pad = (n: number) => String(n).padStart(2, '0');
-
-    const day = pad(date.getDate());
-    const month = pad(date.getMonth() + 1);
-    const year = date.getFullYear();
-
-    const hours = pad(date.getHours());
-    const minutes = pad(date.getMinutes());
-    const seconds = pad(date.getSeconds());
-
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-  };
-
   const handleSubmit = () => {
-    if (selectedStatus === 'Others' && comments.trim() !== '') {
-      // Prepend the comment with "UserName (DD/MM/YYYY HH:MM:SS): "
-      const now = new Date();
-      const timestamp = formatDateTime(now);
-      const fullComment = `${userName} (${timestamp}): ${comments.trim()}`;
-
-      onSubmit(selectedStatus, fullComment);
+    if (!onSubmit) return;
+    if (selectedStatus === 'Others') {
+      onSubmit('Others', comments.trim());
     } else {
-      // No comment required for "Reviewed", or empty comment if user didn't type anything
-      onSubmit(selectedStatus, undefined);
+      onSubmit('Reviewed', undefined);
     }
-
-    // Reset local state
-    setSelectedStatus('');
+    setSelectedStatus('Reviewed');
     setComments('');
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg p-6 w-96">
-        <h2 className="text-xl font-semibold mb-4">Status Pop Up</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center pt-60 z-50 overflow-auto">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        {isViewMode ? (
+          // VIEW
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Comment</h2>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 text-lg"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="bg-gray-100 p-4 rounded-md text-gray-800 whitespace-pre-wrap">
+              {viewComment}
+            </div>
+          </>
+        ) : (
+          // EDIT 
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Status Pop-Up</h2>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 text-lg"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
 
-        <div className="mb-4">
-          <h3 className="font-medium mb-2">Select Status</h3>
-          <div className="space-y-2">
-            <label className="flex items-center space-x-2">
-              <input
-                type="radio"
-                name="status"
-                value="Reviewed"
-                checked={selectedStatus === 'Reviewed'}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="form-radio"
-              />
-              <span>Reviewed</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input
-                type="radio"
-                name="status"
-                value="Others"
-                checked={selectedStatus === 'Others'}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="form-radio"
-              />
-              <span>Others</span>
-            </label>
-          </div>
-        </div>
+            <div className="mb-4">
+              <h3 className="font-medium mb-2">Select Status</h3>
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="Reviewed"
+                    checked={selectedStatus === 'Reviewed'}
+                    onChange={() => setSelectedStatus('Reviewed')}
+                    className="form-radio h-4 w-4"
+                  />
+                  <span>Reviewed</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="Others"
+                    checked={selectedStatus === 'Others'}
+                    onChange={() => setSelectedStatus('Others')}
+                    className="form-radio h-4 w-4"
+                  />
+                  <span>Others</span>
+                </label>
+              </div>
+            </div>
 
-        {selectedStatus === 'Others' && (
-          <div className="mb-4">
-            <label className="block font-medium mb-2">Comments</label>
-            <textarea
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              className="w-full border rounded-lg p-2"
-              rows={3}
-              placeholder="Type your comment here..."
-            />
-          </div>
+            {selectedStatus === 'Others' && (
+              <div className="mb-4">
+                <label className="block font-medium mb-2">Comments</label>
+                <textarea
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  className="w-full border rounded-lg p-2 focus:outline-none focus:ring focus:border-blue-300"
+                  rows={3}
+                  placeholder="Type comment here..."
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                disabled={
+                  selectedStatus === 'Others' && comments.trim() === ''
+                }
+              >
+                Submit
+              </button>
+            </div>
+          </>
         )}
-
-        <div className="flex justify-end space-x-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            disabled={!selectedStatus || (selectedStatus === 'Others' && comments.trim() === '')}
-          >
-            Submit
-          </button>
-        </div>
       </div>
     </div>
   );

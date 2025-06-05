@@ -1,5 +1,8 @@
 {
   "/processes/page": "app/processes/page.js",
-  "/api/processes/route": "app/api/processes/route.js",
-  "/api/processes/status/route": "app/api/processes/status/route.js"
+  "/page": "app/page.js",
+  "/batch/page": "app/batch/page.js",
+  "/api/processes/status/route": "app/api/processes/status/route.js",
+  "/api/batch/route": "app/api/batch/route.js",
+  "/api/processes/route": "app/api/processes/route.js"
 }
