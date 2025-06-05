@@ -1,4 +1,4 @@
-// File: C:\Users\user\Desktop\Vital-user interface\VITAL_HRPS_USER_INTERFACE\app\layout.tsx
+// File: C:\Users\HP\Documents\VITAL_eHIVE_USERINTERFACE-1\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { listenerCount } from 'node:stream';
 
 // Update base API URL to use the complete URL
 const HRPS_API_BASE_URL = 'http://192.168.1.185/hrps-api';
@@ -26,10 +27,30 @@ interface ApiResponse {
   data: {
     currentPage: number;
     totalPage: number;
+    totalRecords: number;
     dataPerPage: number;
     data: BatchData[];
   }
 }
+
+const getDateRangeDays = (dateRange: string): number => {
+  switch (dateRange) {
+    // case 'All Time':
+    //   return 3650; // 10 years
+    case 'Last 7 days':
+      return 7;
+    case 'Last 30 days':
+      return 30;
+    case 'Last 3 months':
+      return 90;
+    case 'Last 6 months':
+      return 180;
+    case 'Last 1 year':
+      return 365;
+    default:
+      return 7;
+  }
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,61 +72,25 @@ export async function GET(request: NextRequest) {
     // Calculate date range
     const today = new Date();
     let startDate = new Date();
+    //let daysRange = 7;
     
     // Ensure we're working with the current date
     console.log('📅 Current date:', today.toISOString());
-    
-    // Only set date range if not "All Time"
-    if (dateRange !== 'All Time') {
-      switch (dateRange) {
-        case 'Last 7 days':
-          startDate.setDate(today.getDate() - 7);
-          break;
-        case 'Last 30 days':
-          startDate.setDate(today.getDate() - 30);
-          break;
-        case 'Last 3 months':
-          startDate.setMonth(today.getMonth() - 3);
-          break;
-        case 'Last 6 months':
-          startDate.setMonth(today.getMonth() - 6);
-          break;
-        case 'Last 1 year':
-          startDate.setFullYear(today.getFullYear() - 1);
-          break;
-        default:
-          startDate.setDate(today.getDate() - 7);
-      }
-    }
-
-    // Format dates for API
-    const formattedStartDate = dateRange === 'All Time' ? '2000-01-01' : startDate.toISOString().split('T')[0];
-    const formattedEndDate = today.toISOString().split('T')[0];
-
-    console.log('📅 Date range:', {
-      startDate: formattedStartDate,
-      endDate: formattedEndDate,
-      dateRange
-    });
 
     // Construct API query parameters
     const apiQueryParams = new URLSearchParams({
-      currentPage: (parseInt(page) + 1).toString(), // API uses 1-based indexing
-      dataPerPage: limit,
-      sortBy: sortColumn,
-      sortDirection: sortDirection.toUpperCase()
+      Page: (parseInt(page) + 1).toString(), // API uses 1-based indexing
+      Limit: limit,
+      DaysRange: getDateRangeDays(dateRange).toString()
     });
 
     // Only add date parameters if not "All Time"
-    if (dateRange !== 'All Time') {
-      apiQueryParams.append('fromDate', formattedStartDate);
-      apiQueryParams.append('toDate', formattedEndDate);
-    }
+    
 
     // Ensure we have a valid URL
     const apiUrl = new URL(`${HRPS_API_BASE_URL}/HRP/Batches`);
     apiUrl.search = apiQueryParams.toString();
-
+    
     console.log('🌐 Calling HRPS API:', apiUrl.toString());
     console.log('🔍 Query Parameters:', Object.fromEntries(apiQueryParams.entries()));
     console.log('📊 Sort Parameters:', {
@@ -217,7 +202,12 @@ export async function GET(request: NextRequest) {
             lastUpdatedDate: item.lastUpdatedDate
           };
         }),
-        total: apiResponse.data.totalPage * apiResponse.data.dataPerPage // Use total records from API
+        //Fix later!
+        total: apiResponse.data.totalRecords,
+        totalPage: apiResponse.data.totalPage,
+        dataPerPage: apiResponse.data.dataPerPage,
+        currentPage: apiResponse.data.currentPage,
+         // Use total records from API
       }
     };
 

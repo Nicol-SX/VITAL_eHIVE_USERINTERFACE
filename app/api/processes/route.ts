@@ -34,10 +34,30 @@ interface ApiResponse {
   data: {
     currentPage: number;
     totalPage: number;
+    totalRecords: number;
     dataPerPage: number;
     data: ProcessData[];
   }
 }
+
+const getDateRangeDays = (dateRange: string): number => {
+  switch (dateRange) {
+    // case 'All Time':
+    //   return 3650; // 10 years
+    case 'Last 7 days':
+      return 7;
+    case 'Last 30 days':
+      return 30;
+    case 'Last 3 months':
+      return 90;
+    case 'Last 6 months':
+      return 180;
+    case 'Last 1 year':
+      return 365;
+    default:
+      return 7;
+  }
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,6 +68,7 @@ export async function GET(request: NextRequest) {
     const sortColumn = searchParams.get('sortColumn') || 'effectiveDate';
     const sortDirection = searchParams.get('sortDirection') || 'desc';
     const batchId = searchParams.get('batchId');
+    const hrpsDateTime = searchParams.get('apiSearch') || '';
 
     console.log('Process API Request Params:', {
       page,
@@ -55,7 +76,8 @@ export async function GET(request: NextRequest) {
       dateRange,
       sortColumn,
       sortDirection,
-      batchId
+      batchId,
+      hrpsDateTime
     });
 
     // Calculate date range
@@ -85,6 +107,8 @@ export async function GET(request: NextRequest) {
         startDate.setDate(today.getDate() - 7);
     }
 
+    
+
     // Format dates for API
     const formattedStartDate = startDate.toISOString().split('T')[0];
     const formattedEndDate = today.toISOString().split('T')[0];
@@ -95,20 +119,38 @@ export async function GET(request: NextRequest) {
     });
 
     // Construct API query parameters
-    const apiQueryParams = new URLSearchParams({
-      currentPage: (parseInt(page) + 1).toString(), // API uses 1-based indexing
-      dataPerPage: limit,
-      fromDate: formattedStartDate,
-      toDate: formattedEndDate,
-      sortBy: sortColumn,
-      sortDirection: sortDirection.toUpperCase(),
-      includeBatchId: 'true' // Add this parameter to request batchId
-    });
+    // const apiQueryParams = new URLSearchParams({
+    //   currentPage: (parseInt(page) + 1).toString(), // API uses 1-based indexing
+    //   dataPerPage: limit,
+    //   fromDate: formattedStartDate,
+    //   toDate: formattedEndDate,
+    //   sortBy: sortColumn,
+    //   sortDirection: sortDirection.toUpperCase(),
+    //   includeBatchId: 'true' // Add this parameter to request batchId
+    // });
 
+     const apiQueryParams = new URLSearchParams({
+      DaysRange: getDateRangeDays(dateRange).toString()
+     });
+
+    if (page != '0') {
+      apiQueryParams.append('Page', (parseInt(page) + 1).toString());
+    }
+
+    if (limit != '50') {
+      apiQueryParams.append('Limit', limit);
+    }
+
+    
     // Add batchId if provided
     if (batchId) {
-      apiQueryParams.append('batchId', batchId);
+      apiQueryParams.append('BatchJobId', batchId);
       console.log('🔍 Filtering by batchId:', batchId);
+    }
+
+    if (hrpsDateTime != '') {
+      apiQueryParams.append('Search', hrpsDateTime);
+      console.log('🔍 Filtering by hrpsDateTime:', hrpsDateTime);
     }
 
     // Ensure we have a valid URL
@@ -219,7 +261,7 @@ export async function GET(request: NextRequest) {
           action: item.action,
           batchId: item.batchId
         })),
-        total: apiResponse.data.totalPage * apiResponse.data.dataPerPage // Use total records from API
+        total: apiResponse.data.totalRecords// Use total records from API
       }
     };
 
