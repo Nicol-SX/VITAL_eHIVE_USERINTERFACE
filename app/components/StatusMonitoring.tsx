@@ -140,9 +140,9 @@
     const d = new Date(dateString);
     if (isNaN(d.getTime())) return '-';
     const pad = (n: number) => n.toString().padStart(2, '0');
+    // Prepend an apostrophe so Excel won’t re‐parse it as a date:
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
-
   // Update Transaction interface
   interface Transaction {
     id: number;
@@ -156,7 +156,7 @@
   }
 
   // Add type for sortable columns
-  type ProcessSortableColumn = 'personnelNumber' | 'insertDate' | 'updateDate' | 'effectiveDate' | 'nric' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage';
+  type ProcessSortableColumn = 'batchId' |'personnelNumber' | 'insertDate' |'nric' |'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage';
   type TabType = 'Overview' | 'Processes' | 'Batch';
   type DateRangeOption = 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 6 months' | 'Last 1 year';
 
@@ -168,7 +168,7 @@
       const bValue = b[currentSortColumn];
 
       // Handle date fields
-      if (currentSortColumn === 'insertDate' || currentSortColumn === 'updateDate' || currentSortColumn === 'effectiveDate') {
+      if (currentSortColumn === 'insertDate') {
         const dateA = new Date(aValue || '').getTime();
         const dateB = new Date(bValue || '').getTime();
         return currentSortDirection === 'asc' ? dateA - dateB : dateB - dateA;
@@ -185,7 +185,7 @@
 
   export default function StatusMonitoring({ defaultTab, selectedBatchId: initialBatchId }: StatusMonitoringProps) {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<TabType>(defaultTab || 'Overview');
+    const [activeTab, setActiveTab] = useState<TabType>(defaultTab || 'Batch');
 
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -223,11 +223,6 @@
     const [initialStatus, setInitialStatus] = useState<string | null>(null);
     const [comments, setComments] = useState('');
     const [processComments, setProcessComments] = useState<{[key: number]: { status: string; comments: string }}>({});
-
-    const [batchProcesses, setBatchProcesses] = useState<Process[]>([]);
-    const [isBatchProcessesLoading, setIsBatchProcessesLoading] = useState(false);
-
-    const [batchDate, setBatchDate] = useState<string | null>(null);
 
     // Add useEffect to get batchId from URL
     useEffect(() => {
@@ -459,24 +454,46 @@
       setShowDateRangeDropdown(false);
     };
 
+
     // Download CSV handler
-    function downloadCSV(data: any[], filename = 'table.csv') {
-      if (!data.length) return;
-      const headers = Object.keys(data[0]);
-      const csvRows = [
-        headers.join(','), // header row
-        ...data.map(row =>
-          headers.map(field => {
-            const value = row[field as keyof typeof row];
-            // Escape quotes and commas
-            return `"${String(value ?? '').replace(/"/g, '""')}"`;
-          }).join(',')
-        ),
+    function downloadCSV(processes: Process[], filename = 'process_table.csv') {
+      if (!processes || processes.length === 0) return;
+      const headers = [
+        'BATCH ID',
+        'PROCESS DATE TIME',
+        'NRIC',
+        'PERNR NUMBER',
+        'ACTION TYPE',
+        'AGENCY',
+        'STATUS',
+        'ERROR MESSAGE'
       ];
-      const csvContent = csvRows.join('\r\n');
+
+      const rows = processes.map((proc) => {
+        const formattedDate = formatDate(proc.insertDate);
+        const excelDate = `="${formattedDate}"`; 
+        const batch = proc.batchId != null ? String(proc.batchId) : '';
+        const errMsg = proc.errorMessage?.trim() !== '' ? proc.errorMessage : '';
+
+        return [
+          batch,
+          excelDate,
+          proc.nric,
+          proc.personnelNumber,
+          proc.actionType,
+          proc.personnelArea,
+          proc.status,
+          errMsg
+        ];
+      });
+
+      const escapeCell = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+      const headerLine = headers.map(escapeCell).join(',');
+      const dataLines = rows.map(row => row.map(escapeCell).join(','));
+      const csvContent = [headerLine, ...dataLines].join('\r\n');
+
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
-
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
@@ -655,7 +672,8 @@
             <div className="px-6 border-b">
               <div className="flex space-x-8">
                 <button
-                  onClick={() => handleTabChange('Overview')}
+                  /*onClick={() => handleTabChange('Overview')} */
+                  disabled
                   className={`py-4 px-2 relative ${
                     activeTab === 'Overview'
                       ? 'text-[#1a4f82] font-medium'
@@ -697,7 +715,7 @@
             </div>
 
             {/* Search and Controls */}
-            <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b bg-white space-y-4 sm:space-y-0">
+            <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white space-y-4 sm:space-y-0">
               <div className="flex items-center space-x-4 w-full">
                 {renderBatchFilter()}
                 <div className="flex items-center space-x-2">
@@ -748,8 +766,8 @@
                     className="flex items-center space-x-2 text-sm text-[#1a4f82] hover:bg-blue-50 px-3 py-2 rounded-md whitespace-nowrap"
                     aria-label="Download CSV"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    <svg 
+                    className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                     <span>Download CSV</span>
                   </button>
@@ -792,7 +810,7 @@
                         <th
                           scope="col"
                           className="w-[10%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
-                          onClick={() => handleSort('personnelNumber')}
+                          onClick={() => handleSort('batchId')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Batch ID</span>
@@ -942,7 +960,7 @@
                             )}
                           </div>
                         </th>
-                        <th className="w-[10%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200">
+                        <th className="w-[10%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 hover:bg-[#15406c]">
                           Actions
                         </th>
                       </tr>
@@ -966,7 +984,7 @@
                         sortProcessData(processes, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage ).map((process) => (
                           <tr key={process.dataID} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-l border-gray-200">
-                              {process.batchId !== null ? process.batchId : '-'}
+                              {process.batchId ?? ''}
                             </td>
                             <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-x border-gray-200">
                               {formatDate(process.insertDate)}
@@ -990,7 +1008,7 @@
                               </span>
                             </td>
                             <td className="w-[20%] px-6 py-4 text-sm text-gray-900 truncate border-r border-gray-200">
-                              {process.errorMessage || '-'}
+                              {process.errorMessage || ''}
                             </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm border-r border-gray-200">
                               {process.status.toUpperCase() === 'FAIL' && (
@@ -1000,7 +1018,7 @@
                                     setInitialStatus(process.status);
                                     setIsStatusModalOpen(true);
                                   }}
-                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                  className="bg-blue-600 bg-blue-700 hover:bg-blue-800 px-3 py-1 rounded-md text-white text-sm font-medium"
                                   aria-label="Update Status"
                                 >
                                   Update Status
