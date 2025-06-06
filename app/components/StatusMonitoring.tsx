@@ -264,10 +264,10 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
       if (apiSearch) {
         if (hrpsDate === apiSearch) {
           fetchProcessData();
-        }
+      }
         // else: wait for hrpsDate to be set by the other useEffect
       } else {
-        fetchProcessData();
+      fetchProcessData();
       }
     }
   }, [activeTab, page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, hrpsDate]);

@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { Tooltip, Button } from "@material-tailwind/react";
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 // Update interfaces with proper type definitions
 interface ProcessAction {
@@ -51,6 +54,11 @@ interface Batch {
   status: string;
   createdDate: string;
   lastUpdatedDate: string;
+}
+
+interface ActionType {
+  type: string;
+  count: number;
 }
 
 interface BatchResponse {
@@ -124,6 +132,8 @@ interface Transaction {
   lastUpdatedDate: string;
 }
 
+
+
 // Add type for sortable columns
 type SortableColumn = 'hrpsDateTime' | 'pickupDate' | 'totalCSVFiles' | 'status' | 'batchJobId';
 
@@ -134,6 +144,15 @@ function formatDate(dateString: string | null | undefined) {
   if (isNaN(d.getTime())) return '-';
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// Add a date formatting function
+function updateFormatDate(dateString: string | null | undefined) {
+  if (!dateString) return '-';
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return '-';
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 // Add interface for optional parameters
@@ -148,7 +167,7 @@ interface FetchBatchOptions {
 
 export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   console.log('🚀 BATCH COMPONENT MOUNTING');
-  
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('Batch');
   console.log('📌 Initial activeTab:', activeTab);
   
@@ -161,8 +180,11 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   }, []);
 
   const [showActionTypes, setShowActionTypes] = useState(false);
+  const [showActionTypesTooltip, setShowActionTypesTooltip] = useState(false);
 
-  const [selectedRow, setSelectedRow] = useState<number | null>(null);
+  const [selectedRow, setSelectedRow] = useState<string | null>(null);
+  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
@@ -177,6 +199,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   //Batches
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isActionTypesLoading, setIsActionTypesLoading] = useState(true);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [totalPage, setTotalPage] = useState(0);
   const [dataPerPage, setDataPerPage] = useState(0);
@@ -189,7 +212,17 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [processSortDirection, setProcessSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const [openStatusDropdown, setOpenStatusDropdown] = useState<number | null>(null);
+  const [getActionTypes, setGetActionTypes] = useState<boolean>(false);
+  //const [actionTypes, setActionTypes] = useState<string[]>([]);
+  const [batchActionType, setBatchActionType] = useState<ActionType[]>([]);
 
+  const [appointments, setAppointments] = useState<number>(0);
+  const [posting, setPosting] = useState<number>(0);
+  const [transfer, setTransfer] = useState<number>(0);
+  const [other, setOther] = useState<number>(0);
+
+  
+  
   const statusOptions = ['Success', 'Failed', 'Pending'] as const;
   type StatusOption = typeof statusOptions[number];
 
@@ -200,12 +233,10 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     'Last 3 months',
     'Last 6 months',
     'Last 1 year',
-    // 'Last 2 years',
-    // 'Last 3 years',
-    // 'Last 5 years',
-    // 'Last 10 years'
+
   ] as const;
   type DateRangeOption = typeof dateRangeOptions[number];
+
 
   const downloadOptions = [
     { id: 'batch', label: 'Batch Table' }
@@ -217,7 +248,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [comments, setComments] = useState('');
   const [processComments, setProcessComments] = useState<Record<number, { status: string; comments: string }>>({});
 
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+
   const [batchProcesses, setBatchProcesses] = useState<Process[]>([]);
   const [isBatchProcessesLoading, setIsBatchProcessesLoading] = useState(false);
 
@@ -241,18 +272,105 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     
     switch (tab) {
       case 'Overview':
-        window.location.href = '/';
+        //window.location.href = '/';
+        router.push('/');
         break;
       case 'Batch':
-        window.location.href = '/batch';
+        //window.location.href = '/batch';
+        router.push('/batch');
         break;
       case 'Processes':
-        window.location.href = '/processes';
+        //window.location.href = '/processes';
+        router.push('/processes');
         break;
       default:
         break;
     }
   };
+
+  function handleUpdateSelectedRow(batch: Batch){
+    setSelectedRow(formatDate(batch.hrpsDateTime));
+    setSelectedBatchId(batch.batchJobId)
+    setShowActionTypes(true);
+  }
+  
+  function handleClearSelectedRow(){
+    setShowActionTypes(false);
+    setBatchActionType([]);
+    setGetActionTypes(false);
+    setSelectedRow(null);
+    setSelectedBatchId(null);
+  }
+
+  function handleUpdateActionType(batch: Batch){
+    setSelectedRow(formatDate(batch.hrpsDateTime));
+    setSelectedBatchId(batch.batchJobId)
+    setShowActionTypesTooltip(true);
+  }
+  
+  function handleClearActionType(){
+    setShowActionTypesTooltip(false);
+    setBatchActionType([]);
+    setGetActionTypes(false);
+    setSelectedRow(null);
+    setSelectedBatchId(null);
+  }
+
+   // Update fetchProcessData to load saved changes after fetching
+  const fetchProcessTypes = async (hrpsDate: string) => {
+    try {
+      setIsActionTypesLoading(true);
+      const queryParams = new URLSearchParams({
+        apiSearch: hrpsDate
+      });
+
+      const response = await fetch(`/api/processes?${queryParams.toString()}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      
+      if (data.error) {
+        setError(data.error);
+        setProcesses([]);
+        setTotalProcesses(0);
+      } else {
+        setProcesses(data.data.data);
+        setTotalProcesses(data.data.total);
+        setError(null);
+
+
+
+        setGetActionTypes(true);
+
+      }
+    } catch (error) {
+      console.error('❌ Error fetching process data:', error);
+      setError('Failed to fetch process data');
+      setProcesses([]);
+      setTotalProcesses(0);
+    } finally {
+      setIsActionTypesLoading(false);
+      
+    }
+  };
+
+  useEffect(() => {
+    if (getActionTypes) {
+        setBatchActionType(handleActionTypes(processes));
+    }
+    
+  }, [getActionTypes]);
+
+  const handleActionTypes = (processes: Process[]) => {
+    const actionTypeMap: { [key: string]: number } = {};
+    processes.forEach((process) => {
+      actionTypeMap[process.actionType] = (actionTypeMap[process.actionType] || 0) + 1;
+    });
+    const result = Object.entries(actionTypeMap).map(([type, count]) => ({ type, count }));
+    console.log("Batch Action Types: ", result);
+    return result;
+  }
 
   const handleSearch = (searchTerm: string): void => {
     setSearchDate(searchTerm);
@@ -342,37 +460,27 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
       // Search filter
       const matchesSearch =
         searchTerm === '' ||
+        (transaction.batchJobId && (
+          transaction.batchJobId.toString().toLowerCase().includes(searchTerm) ||
+          updateFormatDate(transaction.batchJobId.toString()).toLowerCase().includes(searchTerm)
+        ))
+        ||
         (transaction.hrpsDateTime && (
           transaction.hrpsDateTime.toLowerCase().includes(searchTerm) ||
-          formatDate(transaction.hrpsDateTime).toLowerCase().includes(searchTerm)
+          updateFormatDate(transaction.hrpsDateTime).toLowerCase().includes(searchTerm)
         )) ||
         (transaction.pickupDate && (
           transaction.pickupDate.toLowerCase().includes(searchTerm) ||
-          formatDate(transaction.pickupDate).toLowerCase().includes(searchTerm)
+          updateFormatDate(transaction.pickupDate).toLowerCase().includes(searchTerm)
         )) ||
         (transaction.createdDate && (
           transaction.createdDate.toLowerCase().includes(searchTerm) ||
-          formatDate(transaction.createdDate).toLowerCase().includes(searchTerm)
+          updateFormatDate(transaction.createdDate).toLowerCase().includes(searchTerm)
         )) ||
         (transaction.status && transaction.status.toLowerCase().includes(searchTerm));
       
       return inDateRange && matchesSearch;
-        // return (
-      //   searchTerm === '' ||
-      //   (transaction.hrpsDateTime && (
-      //     transaction.hrpsDateTime.toLowerCase().includes(searchTerm) ||
-      //     formatDate(transaction.hrpsDateTime).toLowerCase().includes(searchTerm)
-      //   )) ||
-      //   (transaction.pickupDate && (
-      //     transaction.pickupDate.toLowerCase().includes(searchTerm) ||
-      //     formatDate(transaction.pickupDate).toLowerCase().includes(searchTerm)
-      //   )) ||
-      //   (transaction.createdDate && (
-      //     transaction.createdDate.toLowerCase().includes(searchTerm) ||
-      //     formatDate(transaction.createdDate).toLowerCase().includes(searchTerm)
-      //   )) ||
-      //   (transaction.status && transaction.status.toLowerCase().includes(searchTerm))
-      // );
+        
 
     });
   };
@@ -465,6 +573,14 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, searchDate, activeTab]);
 
+  useEffect(() => {
+    if (selectedRow) {
+      fetchProcessTypes(selectedRow);
+
+    }
+  }, [selectedRow]);
+    
+
   // Update the filtered transactions to use both filter and sort
   const filteredTransactions = sortData(filterTransactions(transactions));
 
@@ -537,22 +653,25 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     totalTransactions
   });
 
-  const handleViewDetails = (batchJobId: string) => {
-    setSelectedRow(parseInt(batchJobId));
+  const handleViewDetails = (hrpsDate: string) => {
+    setSelectedRow(formatDate(hrpsDate));
     setShowActionTypes(true);
   };
+  
 
   //Processes is Transaction
   const handleViewTransactionDetails = (hrpsDateTime: string) => {
     const formattedDate = formatDate(hrpsDateTime);
     // Redirect to processes page with batch ID
     //window.location.href = `/processes?batchId=${batchJobId}`;
-    window.location.href = `/processes?apiSearch=${encodeURIComponent(formattedDate)}`;
+    //window.location.href = `/processes?apiSearch=${encodeURIComponent(formattedDate)}`;
+    router.push(`/processes?apiSearch=${encodeURIComponent(formattedDate)}`);
   };
 
   const showAllProcesses = () => {
     // Redirect to processes page without any search parameters
-    window.location.href = '/processes';
+    //window.location.href = '/processes';
+    router.push('/processes');
   };
 
   // Update pagination section
@@ -594,11 +713,39 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const handleDownloadCSV = async () => {
     const endpoint = '/hrps-api/HRP/Batches/Download';
     const filename = 'batch_table.csv';
+    const removeColumns = ['createddate', 'lastupdateddate']; // all lowercase
+    const dateColumns = ['hrpsdatetime', 'pickupdate']; // all lowercase for case-insensitive match
 
     try {
       const response = await fetch(endpoint, { method: 'GET' });
       if (!response.ok) throw new Error('Failed to download CSV');
-      const blob = await response.blob();
+
+      const csvtext = await response.text();
+      const rows = csvtext.split('\n');
+      if (rows.length === 0) throw new Error('CSV is empty');
+
+      const header = rows[0].split(',');
+      const headerLowerMap = header.map(col => col.trim().toLowerCase());
+      const filteredHeader = header.filter(
+        column => !removeColumns.includes(column.trim().toLowerCase())
+      );
+
+      console.log('Filtered header:', filteredHeader);
+
+      const filteredRows = rows.slice(1).map(row => {
+        const values = row.split(',');
+        return filteredHeader.map(column => {
+          const originalIndex = headerLowerMap.indexOf(column.trim().toLowerCase());
+          let value = values[originalIndex];
+          if (dateColumns.includes(column.trim().toLowerCase()) && value) {
+            value = updateFormatDate(value);
+          }
+          return value;
+        }).join(',');
+      });
+
+      const csvContent = [filteredHeader.join(','), ...filteredRows].join('\n');  
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -612,95 +759,46 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     }
   };
 
-  // //Check if needed for processes
-  // useEffect(() => {
-  //   if (showActionTypes && selectedRow !== null) {
-  //     // Fetch processes for this batch
-  //     const fetchProcesses = async () => {
-  //       try {
-  //         const response = await fetch(`/api/processes`);
-  //         const data = await response.json();
-  //         console.log('Fetched processes:', data.data);
-  //         setProcesses(Array.isArray(data.data) ? data.data : []);
-  //         console.log('Batch HRPS Date:', data.data[0].hrpsDateTime, '->', getDateOnly(data.data[0].hrpsDateTime));
-  //         data.data.forEach((proc: Process) => {
-  //           console.log('Process InsertDate:', proc.insertDate, '->', getDateOnly(proc.insertDate));
-  //         });
-  //       } catch (err) {
-  //         setProcesses([]);
-  //       }
-  //     };
-  //     fetchProcesses();
-  //   }
-  // }, [showActionTypes, selectedRow]);
+  // Add new state for hovered and modal batch action types
+  const [hoveredBatchId, setHoveredBatchId] = useState<number | null>(null);
+  const [hoveredActionTypes, setHoveredActionTypes] = useState<ActionType[]>([]);
+  const [isHoveredActionTypesLoading, setIsHoveredActionTypesLoading] = useState(false);
+  const [hoveredActionTypesError, setHoveredActionTypesError] = useState<string | null>(null);
 
-  // const handleCloseModal = () => {
-  //   setShowActionTypes(false);
-  //   setProcesses([]); // clear
-  // };
+  const [modalBatchId, setModalBatchId] = useState<number | null>(null);
+  const [modalActionTypes, setModalActionTypes] = useState<ActionType[]>([]);
+  const [isModalActionTypesLoading, setIsModalActionTypesLoading] = useState(false);
+  const [modalActionTypesError, setModalActionTypesError] = useState<string | null>(null);
 
-  // // Add new state for hover popup
-  // const [hoveredBatch, setHoveredBatch] = useState<string | null>(null);
-  // const [hoveredBatchProcesses, setHoveredBatchProcesses] = useState<Process[]>([]);
-  // const [isLoadingProcesses, setIsLoadingProcesses] = useState(false);
-  // const lastFetchedHrpsDateTime = useRef<string | null>(null);
-
-  // const handleCsvFilesHover = (hrpsDateTime: string) => {
-  //   setHoveredBatch(formatDate(hrpsDateTime));
-  //   if (lastFetchedHrpsDateTime.current !== hrpsDateTime) {
-  //     fetchBatchProcesses(hrpsDateTime);
-  //     console.log('🔄 FETCHED BATCH PROCESSES FOR:', hrpsDateTime);
-  //     lastFetchedHrpsDateTime.current = hrpsDateTime;
-  //   }
-  // };
-
-  // const handleCsvFilesUnhover = () => {
-  //   setHoveredBatch(null);
-  //   // Optionally clear processes or keep for next hover
-  //   // setHoveredBatchProcesses([]);
-  // };
-
-  // const fetchBatchProcesses = async (hrpsDateTime: string) => {
-  //   try {
-  //     setIsLoadingProcesses(true);
-  //     const formattedDate = formatDate(hrpsDateTime);
-  //     console.log('🔄 FETCHING BATCH PROCESSES FOR:', formattedDate);
-  //     const response = await fetch(`/api/processes?Search=${encodeURIComponent(formattedDate)}`);
-  //     const data = await response.json();
-  //     if (data.error) {
-  //       setHoveredBatchProcesses([]);
-  //     } else {
-  //       setHoveredBatchProcesses(data.data.data);
-  //     }
-  //   } catch {
-  //     setHoveredBatchProcesses([]);
-  //   } finally {
-  //     setIsLoadingProcesses(false);
-  //   }
-  // };
-  
-  // const getActionTypeCounts = (processes: Process[], batchJobId: number) => {
-  //   // If all processes are for this batch, just count action types
-  //   let filtered = processes;
-  //   // Use process.batchId for filtering, as per schema
-  //   if (processes.some(p => p.batchId !== String(batchJobId))) {
-  //     // Fallback: filter by batchId if needed
-  //     filtered = processes.filter(p => p.batchId === String(batchJobId));
-  //     console.log('Filtered by batchId:', batchJobId, 'Original count:', processes.length, 'Filtered count:', filtered.length);
-  //   }
-  //   const counts: { [key: string]: number } = {};
-  //   filtered.forEach(process => {
-  //     if (process.actionType) {
-  //       counts[process.actionType] = (counts[process.actionType] || 0) + 1;
-  //     }
-  //   });
-  //   return { counts, total: filtered.length };
-  // };
+  // Fetch action types for a batch (used for both tooltip and modal)
+  const fetchActionTypesForBatch = async (batch: Batch, forModal: boolean = false) => {
+    const setLoading = forModal ? setIsModalActionTypesLoading : setIsHoveredActionTypesLoading;
+    const setError = forModal ? setModalActionTypesError : setHoveredActionTypesError;
+    const setActionTypes = forModal ? setModalActionTypes : setHoveredActionTypes;
+    setLoading(true);
+    setError(null);
+    try {
+      const queryParams = new URLSearchParams({ apiSearch: formatDate(batch.hrpsDateTime) });
+      const response = await fetch(`/api/processes?${queryParams.toString()}`);
+      const data = await response.json();
+      if (data.error) {
+        setError(data.error);
+        setActionTypes([]);
+      } else {
+        setActionTypes(handleActionTypes(data.data.data));
+      }
+    } catch (e) {
+      setError('Failed to fetch action types');
+      setActionTypes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex h-screen w-full">
       {/* Sidebar - Fixed on left */}
-      <div className="w-24 bg-[#1a4f82] text-white sticky top-0 left-0 h-screen">
+      <div className="w-24 bg-[#1a4f82] text-white sticky top-0 left-0 h-screen z-[1000]">
         <div className="p-4 flex flex-col items-center space-y-8">
           <div className="flex flex-col items-center">
             <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center mb-2">
@@ -802,10 +900,17 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                   aria-haspopup="listbox"
                 >
                   <span className="text-sm whitespace-nowrap">{selectedDateRange}</span>
-                  <svg className={`w-4 h-4 transition-transform ${showDateRangeDropdown ? 'transform rotate-180' : ''}`} 
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  {/* <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7-7 7-7" />
+                  </svg> */}
+                  <svg 
+                          className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
                 </button>
               </div>
               <div className="relative">
@@ -852,59 +957,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
             ))}
           </div>
         )}
-        {showDownloadDropdown && (
-          <div
-            className="bg-white rounded-md shadow-lg z-[99999] border w-64"
-            style={{
-              position: 'absolute',
-              top: downloadDropdownPos.top,
-              left: downloadDropdownPos.left,
-              minWidth: 256, // 16rem
-            }}
-            role="listbox"
-            aria-label="Download options"
-          >
-            <div className="p-3">
-              <div className="mb-3">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Select table to download:</h3>
-                {downloadOptions.map((option) => (
-                  <label key={option.id} className="flex items-center space-x-2 py-1">
-                    <input
-                      type="checkbox"
-                      id={`download-${option.id}`}
-                      name={`download-${option.id}`}
-                      checked={selectedTables.includes(option.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedTables([...selectedTables, option.id]);
-                        } else {
-                          setSelectedTables(selectedTables.filter(id => id !== option.id));
-                        }
-                      }}
-                      className="rounded border-gray-300 text-[#1a4f82] focus:ring-[#1a4f82]"
-                      aria-label={`Download ${option.label}`}
-                    />
-                    <span className="text-sm text-gray-700">{option.label}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="flex justify-end border-t pt-3">
-                <button
-                  onClick={handleDownloadCSV}
-                  disabled={selectedTables.length === 0}
-                  className={`px-3 py-1.5 text-sm rounded-md ${
-                    selectedTables.length === 0
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-[#1a4f82] text-white hover:bg-[#15406c]'
-                  }`}
-                  aria-label="Download selected tables"
-                >
-                  Download Selected
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        
 
         {/* Table Container - Only this scrolls */}
         <div className="flex-1 min-h-0 relative w-full">
@@ -1032,65 +1085,59 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                   filteredTransactions.map((batch) => (
                     <tr key={batch.batchJobId} 
                     className="border-b border-gray-200 hover:bg-gray-50 transition-colors"> 
-                    {/* //onMouseEnter={() => {
-                    //   handleCsvFilesHover(batch.hrpsDateTime);
-                    // }}
-                    // onMouseLeave={handleCsvFilesUnhover}> */}
+                    
                       <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
                         {batch.batchJobId}
                       </td>
                       <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
-                        {formatDate(batch.hrpsDateTime)}
+                        {updateFormatDate(batch.hrpsDateTime)}
                       </td>
                       <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
-                        {formatDate(batch.pickupDate)}
+                        {updateFormatDate(batch.pickupDate)}
                       </td>
 
 
-                      <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm border border-gray-200">
+                      <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm border border-gray-200 relative">
                         <button
-                          className="text-[#1a4f82] hover:text-blue-700 font-medium"
+                          className="text-[#1a4f82] hover:text-blue-700 font-medium relative"
                           onClick={() => {
-                            setSelectedRow(batch.batchJobId);
-                            setShowActionTypes(true);
+                            setModalBatchId(batch.batchJobId);
+                            fetchActionTypesForBatch(batch, true);
+                          }}
+                          onMouseEnter={() => {
+                            setHoveredBatchId(batch.batchJobId);
+                            fetchActionTypesForBatch(batch, false);
+                          }}
+                          onMouseLeave={() => {
+                            setHoveredBatchId(null);
+                            setHoveredActionTypes([]);
+                            setHoveredActionTypesError(null);
                           }}
                         >
                           {batch.totalCSVFiles || 0}
                         </button>
-                      </td>
-
-                      {/* <td
-                        className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm border border-gray-200 relative"
-                        onMouseEnter={() => {
-                          setHoveredBatch(formatDate(batch.hrpsDateTime));
-                          if (formatDate(batch.hrpsDateTime) === '2025/05/25 22:09:55') {
-                            console.log('Hovered Action Type tooltip for:', formatDate(batch.hrpsDateTime));
-                          } else {
-                            console.log('Hovered batch:', formatDate(batch.hrpsDateTime));
-                          }
-                        }}
-                        onMouseLeave={() => {
-                          if (formatDate(batch.hrpsDateTime) === '2025/05/25 22:09:55') {
-                            console.log('Unhovered Action Type tooltip for:', formatDate(batch.hrpsDateTime));
-                          }
-                          setHoveredBatch(null);
-                        }}
-                      >
-                        {batch.totalCSVFiles || 0}
-                        {formatDate(batch.hrpsDateTime) === '2025/05/25 22:09:55' && hoveredBatch === '2025/05/25 22:09:55' && (
-                          <div className="absolute z-50 left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 p-3 text-xs">
-                            <div className="font-bold mb-1">Action Type:</div>
-                            <div>Appointment: 1</div>
-                            <div>Posting: 1</div>
-                            <div>Transfer: 1</div>
+                        {/* Tooltip for this batch */}
+                        {hoveredBatchId === batch.batchJobId && (
+                          <div className="absolute z-50 left-1/2 -translate-x-1/2 mt-2 w-56 rounded bg-white text-gray-700 p-2 text-xs shadow-lg">
+                            <div className="font-semibold mb-1">Action Types:</div>
+                            {isHoveredActionTypesLoading ? (
+                              <div className="flex items-center justify-center">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                              </div>
+                            ) : hoveredActionTypesError ? (
+                              <div>{hoveredActionTypesError}</div>
+                            ) : hoveredActionTypes.length > 0 ? (
+                              hoveredActionTypes.map((actionType) => (
+                                <div key={actionType.type}>{actionType.type}: {actionType.count}</div>
+                              ))
+                            ) : (
+                              <div>No data available</div>
+                            )}
                           </div>
                         )}
-                      </td> */}
+                      </td>
 
-                      {/* //onMouseEnter={() => {
-                    //   handleCsvFilesHover(batch.hrpsDateTime);
-                    // }}
-                    // onMouseLeave={handleCsvFilesUnhover}> */}
+                    
 
                       <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                         <div className="relative">
@@ -1165,6 +1212,29 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                 <button
                   onClick={() => {
                     if (page > 0) {
+                      handlePageChange(0);
+                    }
+                  }}
+                  disabled={page === 0}
+                  className={`p-1 rounded-full ${
+                    page === 0 
+                      ? 'text-gray-300 cursor-not-allowed' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="inline-flex items-center m-0 p-0">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <svg className="w-5 h-5 -ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (page > 0) {
                       handlePageChange(page - 1);
                     }
                   }}
@@ -1175,9 +1245,12 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
+                  <span className="inline-flex items-center">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    
+                  </span>
                 </button>
 
                 <div className="flex flex-wrap justify-center gap-1">
@@ -1211,9 +1284,36 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
+                <span className="inline-flex items-center">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                </span>
+                  
+                  
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (page < totalPages - 1) {
+                      handlePageChange(totalPages - 1);
+                    }
+                  }}
+                  disabled={page >= totalPages - 1}
+                  className={`p-1 rounded-full ${
+                    page >= totalPages - 1
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="inline-flex items-center">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    <svg className="w-5 h-5 -ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </span>
                 </button>
               </nav>
             </div>
@@ -1221,20 +1321,28 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         </div>
       </div>
 
-      {/* Action Types Modal */}
-      {showActionTypes && selectedRow !== null && (
+      {/* Modal for action types */}
+      {modalBatchId !== null && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]"
-          onClick={() => setShowActionTypes(false)}
+          onClick={() => {
+            setModalBatchId(null);
+            setModalActionTypes([]);
+            setModalActionTypesError(null);
+          }}
         >
           <div 
             className="bg-white rounded-lg shadow-xl p-6 w-96 relative"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">CSV Files</h3>
+              <h3 className="text-lg font-medium text-gray-900">Action Types:</h3>
               <button 
-                onClick={() => setShowActionTypes(false)}
+                onClick={() => {
+                  setModalBatchId(null);
+                  setModalActionTypes([]);
+                  setModalActionTypesError(null);
+                }}
                 className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1243,79 +1351,27 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
               </button>
             </div>
             <div className="text-sm text-gray-600">
-              Total CSV Files: {transactions.find(t => t.batchJobId === selectedRow)?.totalCSVFiles}
+              {isModalActionTypesLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1a4f82]"></div>
+                </div>
+              ) : modalActionTypesError ? (
+                <div>{modalActionTypesError}</div>
+              ) : modalActionTypes.length > 0 ? (
+                <div>
+                  {modalActionTypes.map((actionType) => (
+                    <div key={actionType.type}>{actionType.type}: {actionType.count}</div>
+                  ))}
+                </div>
+              ) : (
+                <div>No data available</div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/*Updated Action Types Modal */}
-      {/* {showActionTypes && selectedRow !== null && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]"
-          onClick={handleCloseModal}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-xl p-6 w-96 relative"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">CSV Files</h3>
-              <button 
-                onClick={handleCloseModal}
-                className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            {(() => {
-              const batch = transactions.find(t => t.batchJobId === selectedRow);
-              if (!batch) return null;
-
-              // Link by formatted date
-              const batchProcesses = processes.filter(
-                p => getDateOnly(p.insertDate) === getDateOnly(batch.hrpsDateTime)
-              );
-
-              // Count action types
-              const actionTypeCounts: Record<string, number> = {};
-              batchProcesses.forEach(proc => {
-                if (proc.actionType) {
-                  actionTypeCounts[proc.actionType] = (actionTypeCounts[proc.actionType] || 0) + 1;
-                }
-              });
-
-              if (batchProcesses.length === 0) {
-                return (
-                  <div className="text-sm text-red-500 mt-2">
-                    Action type breakdown cannot be identified for this batch.
-                  </div>
-                );
-              }
-
-              console.log('Batch HRPS Date:', batch.hrpsDateTime, '->', getDateOnly(batch.hrpsDateTime));
-              processes.forEach((proc: Process) => {
-                console.log('Process InsertDate:', proc.insertDate, '->', getDateOnly(proc.insertDate));
-              });
-
-              return (
-                <div className="text-sm text-gray-600 space-y-1">
-                  {Object.entries(actionTypeCounts).map(([type, count]) => (
-                    <div key={type}>
-                      {type}: {count}
-                    </div>
-                  ))}
-                  <div className="font-semibold mt-2">
-                    Total: {batch.totalCSVFiles}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )} */}
+      
     </div>
   );
 } 
