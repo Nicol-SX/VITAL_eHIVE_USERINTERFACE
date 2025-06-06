@@ -49,27 +49,6 @@
     };
   }
 
-  // Add Batch interface
-  interface Batch {
-    batchJobId: number;
-    hrpsDateTime: string;
-    pickupDate: string;
-    totalCSVFiles: number;
-    status: 'Success' | 'Pending' | 'Fail';
-    createdDate: string;
-    lastUpdatedDate: string;
-  }
-
-  interface BatchResponse {
-    message: string;
-    errorMessage: string | null;
-    data: {
-      currentPage: number;
-      totalPage: number;
-      dataPerPage: number;
-      data: Batch[];
-    };
-  }
 
   // Update base API URL to use the proxied endpoint
   const HRPS_API_BASE_URL = '/hrps-api/HRP';  
@@ -185,7 +164,7 @@
 
   export default function StatusMonitoring({ defaultTab, selectedBatchId: initialBatchId }: StatusMonitoringProps) {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<TabType>(defaultTab || 'Batch');
+    const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Processes'>(defaultTab || 'Batch');
 
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -219,11 +198,8 @@
 
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedProcessId, setSelectedProcessId] = useState<number | null>(null);
-    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
     const [initialStatus, setInitialStatus] = useState<string | null>(null);
-    const [comments, setComments] = useState('');
-    const [viewCommentText, setViewCommentText] = useState<string | null>(null)
-    const [processComments, setProcessComments] = useState<{[key: number]: { status: string; comments: string }}>({});
+    const [processComments, setProcessComments] = useState<{[id: number]: { user: string; timestamp: string; comment: string }; }>({});
 
     // Add useEffect to get batchId from URL
     useEffect(() => {
@@ -249,31 +225,6 @@
         case 'Processes':
           router.push('/processes');
           break;
-      }
-    };
-
-    // Handle view transaction details
-    const handleViewTransactionDetails = (batchJobId: string) => {
-      router.push(`/processes?processDate=${batchJobId}`);
-    };
-
-    // Fetch batch data
-    const fetchBatchData = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/batch?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${sortColumn}&sortDirection=${sortDirection}`);
-        const data = await response.json();
-        
-        if (data.error) {
-          setError(data.error);
-        } else {
-          setTransactions(data.transactions.data);
-          setTotalTransactions(data.transactions.total);
-        }
-      } catch (error) {
-        setError('Failed to fetch batch data');
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -327,22 +278,12 @@
       }
     };
 
-    // Force fetch when date range changes
-    useEffect(() => {
-      if (activeTab === 'Batch') {
-        fetchBatchData();
-      } else if (activeTab === 'Processes') {
-        fetchAllProcesses();
-      }
-    }, [selectedDateRange]);
 
     useEffect(() => {
       if (selectedBatchId) {
         fetchProcessesByBatchId(selectedBatchId);
       } else if (activeTab === 'Processes') {
         fetchAllProcesses();
-      } else {
-        fetchBatchData();
       }
     }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, selectedBatchId, activeTab, processSortColumn, processSortDirection]);
 
@@ -504,86 +445,57 @@
       URL.revokeObjectURL(url);
     }
 
-    // handle Popup submit
-    const handlePopupSubmit = (newStatus: 'Reviewed' | 'Others', fullComment?: string) => {
-      if (selectedProcessId == null) return;
-
-      if (newStatus === 'Others' && fullComment) {
-        setProcessComments(prev => ({
-          ...prev,
-          [selectedProcessId]: { status: newStatus, comments: fullComment }
-        }));
-      }
-
-      // Immediately update the row’s status locally:
-      setProcesses(prev =>
-        prev.map(p =>
-          p.dataID === selectedProcessId ? { ...p, status: newStatus } : p
-        )
-      );
-
-      // Fire‐and‐forget to backend:
-      fetch('/api/processes/status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dataID: selectedProcessId,
-          status: newStatus === 'Reviewed' ? 0 : 1,
-          comment: fullComment ?? '',
-          type: 1
-        })
-      }).catch(err => console.error('Error updating status:', err));
-
-      // Close popup
-      setIsStatusModalOpen(false);
-      setSelectedProcessId(null);
-      setViewCommentText(null);
-    };
-
-
     // Add this function inside the StatusMonitoring component, before the return statement
-    const handleStatusUpdate = async () => {
-      if (!selectedProcessId || !selectedStatus) return;
-
+    const handleStatusUpdate = async (
+      newStatus: 'Reviewed' | 'Others',
+      rawComment: string,
+      dataID: number
+    ) => {
       try {
         const response = await fetch('/api/processes/status', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            status: selectedStatus === 'REVIEWED' ? 0 : 1,
-            comment: comments,
+            status: newStatus === 'Reviewed' ? 0 : 1,
+            comment: newStatus === 'Others' ? rawComment : '',
             type: 1,
-            dataID: selectedProcessId
-          })
+            dataID,
+          }),
         });
 
         const data = await response.json();
+        if (data.error) throw new Error(data.error);
 
-        if (data.error) {
-          throw new Error(data.error);
+        setProcesses(prev =>
+          prev.map(p =>
+            p.dataID === dataID ? { ...p, status: newStatus } : p
+          )
+        );
+       
+        if (newStatus === 'Others') {
+          const timestamp = formatDate(new Date().toISOString());
+          setProcessComments(prev => ({
+            ...prev,
+            [dataID]: {
+              user: 'HRPS User',
+              timestamp,
+              comment: rawComment.trim(),
+            },
+          }));
         }
-
-        // Close modal and refresh data
+        
         setIsStatusModalOpen(false);
-        setSelectedStatus(null);
-        setComments('');
         setSelectedProcessId(null);
 
-        // Refresh the processes list
-        if (selectedBatchId) {
-          fetchProcessesByBatchId(selectedBatchId);
-        } else {
-          fetchAllProcesses();
-        }
       } catch (error) {
         console.error('Error updating status:', error);
-        // You might want to show an error message to the user here
       }
     };
 
-
+    const onPopupSubmit = (status: 'Reviewed' | 'Others', rawComment?: string) => {
+      if (selectedProcessId == null) return;
+      handleStatusUpdate(status, rawComment ?? '', selectedProcessId);
+    };
 
     // Add handleSort function
     const handleSort = (column: ProcessSortableColumn) => {
@@ -1038,14 +950,12 @@
                             </td>
                             <td className="w-[20%] px-6 py-4 text-sm text-gray-900 truncate border-r border-gray-200">
                               {process.errorMessage || ''}
-                              {processComments[process.dataID]?.comments || ''}
                             </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm border-r border-gray-200">
                               {process.status.toUpperCase() === 'FAIL' ? (
                                 <button
                                   onClick={() => {
                                     setSelectedProcessId(process.dataID);
-                                    setViewCommentText(null);
                                     setIsStatusModalOpen(true);
                                   }}
                                   className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm font-medium"
@@ -1053,18 +963,11 @@
                                 >
                                   Update Status
                                 </button>
-                              ) : process.status.toUpperCase() === 'OTHERS' ? (
-                                <button 
-                                  onClick={() => {
-                                    setSelectedProcessId(process.dataID);
-                                    setViewCommentText( processComments[process.dataID]?.comments || '' );
-                                    setIsStatusModalOpen(true);
-                                  }}
-                                  className="bg-gray-500 hover:bg-gray-600 px-3 py-1 rounded-md text-white text-sm font-medium"
-                                  aria-label="View Comment"
-                                >
-                                  View
-                                </button>
+                              ) : process.status.toUpperCase() === 'OTHERS' && processComments[process.dataID] ? (
+                                // Immediately show the stored comment (no refresh needed)
+                                <div className="text-sm text-gray-700">
+                                  {`${processComments[process.dataID].user} (${processComments[process.dataID].timestamp}): ${processComments[process.dataID].comment}`}
+                                </div>
                               ) : null}
                             </td>
                           </tr>
@@ -1116,9 +1019,7 @@
                     onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
                     disabled={page === 0}
                     className={`px-2 py-1 text-sm rounded-md ${
-                      page === 0
-                        ? 'text-gray-300 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-gray-100'
+                      page === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
                     }`}
                     aria-label="Previous page"
                   >
@@ -1130,9 +1031,7 @@
                       key={idx}
                       onClick={() => setPage(idx)}
                       className={`px-2 py-1 text-sm rounded-md ${
-                        page === idx
-                          ? 'bg-[#1a4f82] text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
+                        page === idx ? 'bg-[#1a4f82] text-white' : 'text-gray-700 hover:bg-gray-100'
                       }`}
                       aria-label={`Page ${idx + 1}`}
                     >
@@ -1146,9 +1045,7 @@
                     }
                     disabled={page + 1 >= totalPages}
                     className={`px-2 py-1 text-sm rounded-md ${
-                      page + 1 >= totalPages
-                        ? 'text-gray-300 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-gray-100'
+                      page + 1 >= totalPages ? 'text-gray-300 cursor-not-allowed': 'text-gray-700 hover:bg-gray-100'
                     }`}
                     aria-label="Next page"
                   >
@@ -1159,9 +1056,7 @@
                     onClick={() => setPage(totalPages - 1)}
                     disabled={page === totalPages - 1}
                     className={`px-2 py-1 text-sm rounded-md ${
-                      page === totalPages - 1
-                        ? 'text-gray-300 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-gray-100'
+                      page === totalPages - 1 ? 'text-gray-300 cursor-not-allowed': 'text-gray-700 hover:bg-gray-100'
                     }`}
                     aria-label="Last page"
                   >
@@ -1176,13 +1071,11 @@
         {isStatusModalOpen && selectedProcessId !== null && (
           <StatusPopup
             isOpen={true}
-            viewComment={viewCommentText || undefined}
             onClose={() => {
               setIsStatusModalOpen(false);
               setSelectedProcessId(null);
-              setViewCommentText(null);
             }}
-            onSubmit={handlePopupSubmit}
+            onSubmit={onPopupSubmit}
           />
         )}
       </div>
