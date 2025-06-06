@@ -428,7 +428,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
       }
 
       // Handle numeric fields
-      if (sortColumn === 'totalCSVFiles') {
+      if (sortColumn === 'totalCSVFiles' || sortColumn === 'batchJobId') {
         const numA = Number(aValue) || 0;
         const numB = Number(bValue) || 0;
         return sortDirection === 'asc' ? numA - numB : numB - numA;
