@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import config from '../common/config';
 
 // Update interfaces with proper type definitions
 interface ProcessAction {
@@ -363,7 +364,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
           sortDirection
         });
 
-        const response = await fetch(`/api/batch?${queryParams.toString()}`);
+        const response = await fetch(`${config.API_URL}/hrp/batches?${queryParams.toString()}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

@@ -1,9 +1,9 @@
   'use client';
 
   import React, { useState, useEffect } from 'react';
-  import Link from 'next/link';
   import { useRouter } from 'next/navigation';
   import StatusPopup from './StatusPopup'; // adjust path as needed
+  import config from '../common/config';
 
   // Add new Process interface
   interface ProcessAction {
@@ -197,7 +197,7 @@
     ] as const;
 
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-    const [selectedProcessId, setSelectedProcessId] = useState<number | null>(null);
+    const [selectedProcess, setSelectedProcess] = useState<Process | null>(null);
     const [initialStatus, setInitialStatus] = useState<string | null>(null);
     const [processComments, setProcessComments] = useState<{[id: number]: { user: string; timestamp: string; comment: string }; }>({});
 
@@ -232,7 +232,7 @@
     const fetchProcessesByBatchId = async (batchId: string) => {
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/processes?batchId=${batchId}&page=${page}&limit=${rowsPerPage}`);
+        const response = await fetch(`${config.API_URL}/hrp/processes?batchId=${batchId}&page=${page}&limit=${rowsPerPage}`);
         const data = await response.json();
         
         if (data.error) {
@@ -262,7 +262,7 @@
     const fetchAllProcesses = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}`);
+        const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}`);
         const data = await response.json();
         
         if (data.error) {
@@ -278,12 +278,11 @@
       }
     };
 
-
     useEffect(() => {
       if (selectedBatchId) {
         fetchProcessesByBatchId(selectedBatchId);
       } else if (activeTab === 'Processes') {
-        fetchAllProcesses();
+        // fetchAllProcesses();
       }
     }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, selectedBatchId, activeTab, processSortColumn, processSortDirection]);
 
@@ -341,6 +340,7 @@
         const startDate = new Date(now.setDate(now.getDate() - days));
         const matchesDateRange = processDate >= startDate;
 
+        return true;
         return matchesSearch && matchesDateRange;
       });
     };
@@ -351,7 +351,7 @@
         try {
           setIsLoading(true);
           if (activeTab === 'Batch') {
-            const response = await fetch(`/api/batch?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${sortColumn}&sortDirection=${sortDirection}`);
+            const response = await fetch(`${config.API_URL}/hrp/batch?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${sortColumn}&sortDirection=${sortDirection}`);
             const data = await response.json();
             
             if (data.error) {
@@ -363,16 +363,18 @@
               setTotalTransactions(filteredData.length);
             }
           } else if (activeTab === 'Processes') {
-            const response = await fetch(`/api/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}`);
+            const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}`);
             const data = await response.json();
             
-            if (data.error) {
-              setError(data.error);
+            if (data.errorMessage) {
+              setError(data.errorMessage);
             } else {
               // Apply filters to the fetched data
               const filteredData = filterProcesses(data.data.data);
               setProcesses(filteredData);
               setTotalProcesses(filteredData.length);
+              console.log(filteredData, filteredData.length);
+              
             }
           }
         } catch (error) {
@@ -449,16 +451,17 @@
     const handleStatusUpdate = async (
       newStatus: 'Reviewed' | 'Others',
       rawComment: string,
-      dataID: number
+      dataID: number,
+      type: number 
     ) => {
       try {
-        const response = await fetch('/api/processes/status', {
+        const response = await fetch(`${config.API_URL}/hrp/processes/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             status: newStatus === 'Reviewed' ? 0 : 1,
             comment: newStatus === 'Others' ? rawComment : '',
-            type: 1,
+            type,
             dataID,
           }),
         });
@@ -485,7 +488,7 @@
         }
         
         setIsStatusModalOpen(false);
-        setSelectedProcessId(null);
+        setSelectedProcess(null);
 
       } catch (error) {
         console.error('Error updating status:', error);
@@ -493,8 +496,8 @@
     };
 
     const onPopupSubmit = (status: 'Reviewed' | 'Others', rawComment?: string) => {
-      if (selectedProcessId == null) return;
-      handleStatusUpdate(status, rawComment ?? '', selectedProcessId);
+      if (selectedProcess == null) return;
+      handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags);
     };
 
     // Add handleSort function
@@ -524,7 +527,7 @@
 
           console.log('🔍 Fetching processes with params:', Object.fromEntries(queryParams.entries()));
 
-          const response = await fetch(`/api/processes?${queryParams.toString()}`);
+          const response = await fetch(`${config.API_URL}/hrp/processes?${queryParams.toString()}`);
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
@@ -551,7 +554,7 @@
       };
 
       if (activeTab === 'Processes') {
-        fetchProcessData();
+        // fetchProcessData();
       }
     }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, activeTab, selectedBatchId]);
 
@@ -952,10 +955,10 @@
                               {process.errorMessage || ''}
                             </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm border-r border-gray-200">
-                              {process.status.toUpperCase() === 'FAIL' ? (
+                              {process.action == null && process.status.toUpperCase() === 'FAIL' ? (
                                 <button
                                   onClick={() => {
-                                    setSelectedProcessId(process.dataID);
+                                    setSelectedProcess(process);
                                     setIsStatusModalOpen(true);
                                   }}
                                   className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm font-medium"
@@ -963,12 +966,20 @@
                                 >
                                   Update Status
                                 </button>
-                              ) : process.status.toUpperCase() === 'OTHERS' && processComments[process.dataID] ? (
+                              ) 
+                              
+                              // MELVIN: Also i dont think we need this logic, since we dont have status == OTHERS (We only have COMPLETED and FAIL)
+                              : process.action == null && process.status.toUpperCase() === 'OTHERS' && processComments[process.dataID] ? (
                                 // Immediately show the stored comment (no refresh needed)
                                 <div className="text-sm text-gray-700">
                                   {`${processComments[process.dataID].user} (${processComments[process.dataID].timestamp}): ${processComments[process.dataID].comment}`}
                                 </div>
                               ) : null}
+
+                              {/* MELVIN: Here i put an example how to get the comment */}
+                              {
+                                process.action && <>{process.action.comment}</>
+                              }
                             </td>
                           </tr>
                         ))
@@ -1068,12 +1079,12 @@
           </div>
         </div>
 
-        {isStatusModalOpen && selectedProcessId !== null && (
+        {isStatusModalOpen && selectedProcess !== null && (
           <StatusPopup
             isOpen={true}
             onClose={() => {
               setIsStatusModalOpen(false);
-              setSelectedProcessId(null);
+              setSelectedProcess(null);
             }}
             onSubmit={onPopupSubmit}
           />
