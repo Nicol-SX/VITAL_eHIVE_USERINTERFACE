@@ -1,4 +1,7 @@
 {
   "/not-found": "app/not-found.js",
-  "/processes/page": "app/processes/page.js"
+  "/processes/page": "app/processes/page.js",
+  "/batch/page": "app/batch/page.js",
+  "/api/hrp/processes/route": "app/api/hrp/processes/route.js",
+  "/api/hrp/processes/status/route": "app/api/hrp/processes/status/route.js"
 }
