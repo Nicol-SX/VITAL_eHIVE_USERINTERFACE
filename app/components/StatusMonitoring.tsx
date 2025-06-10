@@ -282,7 +282,7 @@
       if (selectedBatchId) {
         fetchProcessesByBatchId(selectedBatchId);
       } else if (activeTab === 'Processes') {
-        // fetchAllProcesses();
+        fetchAllProcesses();
       }
     }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, selectedBatchId, activeTab, processSortColumn, processSortDirection]);
 
@@ -455,12 +455,18 @@
       type: number 
     ) => {
       try {
+        const isoTimestamp = new Date().toISOString();
+        const [datePart, timePart] = isoTimestamp.split('T');
+        const timeNoMs = timePart.split('.')[0];
+        const displayTimestamp = `${datePart.split('-').reverse().join('/')} ${timeNoMs}`;
+
         const response = await fetch(`${config.API_URL}/hrp/processes/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             status: newStatus === 'Reviewed' ? 0 : 1,
             comment: newStatus === 'Others' ? rawComment : '',
+            insertDate: isoTimestamp, 
             type,
             dataID,
           }),
@@ -476,14 +482,9 @@
         );
        
         if (newStatus === 'Others') {
-          const timestamp = formatDate(new Date().toISOString());
           setProcessComments(prev => ({
             ...prev,
-            [dataID]: {
-              user: 'HRPS User',
-              timestamp,
-              comment: rawComment.trim(),
-            },
+            [dataID]: { user: 'HRPS User', timestamp: displayTimestamp, comment: rawComment.trim() }
           }));
         }
         
@@ -589,7 +590,7 @@
     };
 
     return (
-        <div className="flex h-screen w-full">
+        <div className="flex h-screen w-fullover overflow-hidden">
         {/* Sidebar - Fixed on left */}
         <div className="w-24 bg-[#1a4f82] text-white flex top-0 left-0 h-screen">
           <div className="p-4 flex flex-col items-center space-y-8">
@@ -746,19 +747,19 @@
           {/* Table Container - Scrollable area */}
           <div className="flex-1 overflow-auto">
             {activeTab === 'Processes' && (
-              <div className="h-full">
+              <div className="h-full ">
                 <div className="relative">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="w-full divide-y divide-gray-200">
                     <thead className="bg-[#1a4f82] sticky top-0 z-10">
                       <tr>
                         <th
                           scope="col"
-                          className="w-[10%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('batchId')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Batch ID</span>
-                            {sortColumn === 'personnelNumber' && (
+                            {sortColumn === 'batchId' && (
                               <svg
                                 className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                 fill="none"
@@ -773,7 +774,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="w-[15%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('insertDate')}
                         >
                           <div className="flex items-center space-x-1">
@@ -792,7 +793,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="w-[10%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('nric')}
                         >
                           <div className="flex items-center space-x-1">
@@ -811,7 +812,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="w-[15%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('personnelNumber')}
                         >
                           <div className="flex items-center space-x-1">
@@ -830,7 +831,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="w-[15%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('actionType')}
                         >
                           <div className="flex items-center space-x-1">
@@ -849,7 +850,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="w-[15%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('personnelArea')}
                         >
                           <div className="flex items-center space-x-1">
@@ -868,7 +869,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="w-[10%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('status')}
                         >
                           <div className="flex items-center space-x-1">
@@ -887,7 +888,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="w-[20%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('errorMessage')}
                         >
                           <div className="flex items-center space-x-1">
@@ -904,7 +905,7 @@
                             )}
                           </div>
                         </th>
-                        <th className="w-[10%] px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 hover:bg-[#15406c]">
+                        <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 hover:bg-[#15406c]">
                           Actions
                         </th>
                       </tr>
@@ -920,7 +921,7 @@
                         </tr>
                       ) : error ? (
                         <tr>
-                          <td colSpan={9} className="px-6 py-4 text-center text-red-500">
+                          <td colSpan={9} className="px-6 py-3 text-center text-red-500">
                             {error}
                           </td>
                         </tr>
@@ -954,33 +955,26 @@
                             <td className="w-[20%] px-6 py-4 text-sm text-gray-900 truncate border-r border-gray-200">
                               {process.errorMessage || ''}
                             </td>
-                            <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm border-r border-gray-200">
-                              {process.action == null && process.status.toUpperCase() === 'FAIL' ? (
+                            <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                              {process.action && (
+                                <div className="text-sm text-sm text-gray-500 truncate">
+                                  ({formatDate(process.action.insertDate)}):&nbsp;{process.action.comment}
+                                </div>
+                              )}
+
+                              {/* if there’s no action yet and status is FAIL, show Update button */}
+                              {!process.action && process.status.toUpperCase() === 'FAIL' && (
                                 <button
                                   onClick={() => {
                                     setSelectedProcess(process);
                                     setIsStatusModalOpen(true);
                                   }}
                                   className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm font-medium"
-                                  aria-label="Update Status"
                                 >
                                   Update Status
                                 </button>
-                              ) 
-                              
-                              // MELVIN: Also i dont think we need this logic, since we dont have status == OTHERS (We only have COMPLETED and FAIL)
-                              : process.action == null && process.status.toUpperCase() === 'OTHERS' && processComments[process.dataID] ? (
-                                // Immediately show the stored comment (no refresh needed)
-                                <div className="text-sm text-gray-700">
-                                  {`${processComments[process.dataID].user} (${processComments[process.dataID].timestamp}): ${processComments[process.dataID].comment}`}
-                                </div>
-                              ) : null}
-
-                              {/* MELVIN: Here i put an example how to get the comment */}
-                              {
-                                process.action && <>{process.action.comment}</>
-                              }
-                            </td>
+                              )}
+                            </td>         
                           </tr>
                         ))
                       ) : (
