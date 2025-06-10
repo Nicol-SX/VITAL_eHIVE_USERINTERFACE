@@ -364,7 +364,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
           sortDirection
         });
 
-        const response = await fetch(`${config.API_URL}/hrp/batches?${queryParams.toString()}`);
+        const response = await fetch(`${config.API_URL}/batches?${queryParams.toString()}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

@@ -23,8 +23,8 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/hrps-api/:path*',
-        destination: 'http://192.168.1.185/hrps-api/:path*'
+        source: '/hrp/:path*',
+        destination: '/api/:path*'
       }
     ]
   }

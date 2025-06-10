@@ -351,7 +351,7 @@
         try {
           setIsLoading(true);
           if (activeTab === 'Batch') {
-            const response = await fetch(`${config.API_URL}/hrp/batch?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${sortColumn}&sortDirection=${sortDirection}`);
+            const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${sortColumn}&sortDirection=${sortDirection}`);
             const data = await response.json();
             
             if (data.error) {
