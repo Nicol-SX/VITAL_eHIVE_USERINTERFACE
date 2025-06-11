@@ -1,5 +1,4 @@
 {
-  "/not-found": "app/not-found.js",
   "/batch/page": "app/batch/page.js",
   "/processes/page": "app/processes/page.js",
   "/api/hrp/batch/route": "app/api/hrp/batch/route.js",
