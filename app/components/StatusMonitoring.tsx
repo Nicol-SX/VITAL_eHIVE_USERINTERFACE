@@ -340,7 +340,6 @@
         const startDate = new Date(now.setDate(now.getDate() - days));
         const matchesDateRange = processDate >= startDate;
 
-        return true;
         return matchesSearch && matchesDateRange;
       });
     };
@@ -590,7 +589,7 @@
     };
 
     return (
-        <div className="flex h-screen w-fullover overflow-hidden">
+        <div className="flex h-screen w-screen">
         {/* Sidebar - Fixed on left */}
         <div className="w-24 bg-[#1a4f82] text-white flex top-0 left-0 h-screen">
           <div className="p-4 flex flex-col items-center space-y-8">
@@ -750,7 +749,7 @@
               <div className="h-full ">
                 <div className="relative">
                   <table className="w-full divide-y divide-gray-200">
-                    <thead className="bg-[#1a4f82] sticky top-0 z-10">
+                    <thead className="sticky top-0 bg-[#1a4f82] z-10">
                       <tr>
                         <th
                           scope="col"
@@ -953,7 +952,7 @@
                               </span>
                             </td>
                             <td className="w-[20%] px-6 py-4 text-sm text-gray-900 truncate border-r border-gray-200">
-                              {process.errorMessage || ''}
+                              {process.errorMessage || '-'}
                             </td>
                             <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                               {process.action && (
