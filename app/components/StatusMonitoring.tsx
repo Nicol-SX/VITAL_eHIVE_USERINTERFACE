@@ -4,6 +4,7 @@
   import { useRouter } from 'next/navigation';
   import StatusPopup from './StatusPopup'; // adjust path as needed
   import config from '../common/config';
+import toLocalISOString from '../common/to-local-iso-string';
 
   // Add new Process interface
   interface ProcessAction {
@@ -454,7 +455,7 @@
       type: number 
     ) => {
       try {
-        const isoTimestamp = new Date().toISOString();
+        const isoTimestamp = toLocalISOString(new Date());
         const response = await fetch(`${config.API_URL}/hrp/processes/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
