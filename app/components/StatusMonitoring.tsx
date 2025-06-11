@@ -114,7 +114,7 @@
     }
   };
 
-  function formatDate(dateString: string | null | undefined) {
+  function formatDate(dateString: string) {
     if (!dateString) return '-';
     const d = new Date(dateString);
     if (isNaN(d.getTime())) return '-';
@@ -199,7 +199,7 @@
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedProcess, setSelectedProcess] = useState<Process | null>(null);
     const [initialStatus, setInitialStatus] = useState<string | null>(null);
-    const [processComments, setProcessComments] = useState<{[id: number]: { user: string; timestamp: string; comment: string }; }>({});
+    // const [processComments, setProcessComments] = useState<{[id: number]: { user: string; timestamp: string; comment: string }; }>({});
 
     // Add useEffect to get batchId from URL
     useEffect(() => {
@@ -455,10 +455,6 @@
     ) => {
       try {
         const isoTimestamp = new Date().toISOString();
-        const [datePart, timePart] = isoTimestamp.split('T');
-        const timeNoMs = timePart.split('.')[0];
-        const displayTimestamp = `${datePart.split('-').reverse().join('/')} ${timeNoMs}`;
-
         const response = await fetch(`${config.API_URL}/hrp/processes/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -474,19 +470,23 @@
         const data = await response.json();
         if (data.error) throw new Error(data.error);
 
+        const returnAction = data.action || {
+          insertDate: isoTimestamp,
+          comment: rawComment.trim(),
+          type,
+          dataID,
+          status: newStatus === 'Reviewed'?0:1
+        };
+
         setProcesses(prev =>
           prev.map(p =>
-            p.dataID === dataID ? { ...p, status: newStatus } : p
+            p.dataID === dataID ? { ...p, status: newStatus, action: newStatus === 'Others'
+              ? returnAction
+              :undefined
+            } : p
           )
         );
-       
-        if (newStatus === 'Others') {
-          setProcessComments(prev => ({
-            ...prev,
-            [dataID]: { user: 'HRPS User', timestamp: displayTimestamp, comment: rawComment.trim() }
-          }));
-        }
-        
+
         setIsStatusModalOpen(false);
         setSelectedProcess(null);
 
@@ -744,16 +744,16 @@
           )}
 
           {/* Table Container - Scrollable area */}
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-y-scroll overflow-x-auto">
             {activeTab === 'Processes' && (
               <div className="h-full ">
                 <div className="relative">
-                  <table className="w-full divide-y divide-gray-200">
+                  <table className="table-fixed w-full divide-y divide-gray-200">
                     <thead className="sticky top-0 bg-[#1a4f82] z-10">
                       <tr>
                         <th
                           scope="col"
-                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="w-20 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('batchId')}
                         >
                           <div className="flex items-center space-x-1">
@@ -773,7 +773,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="w-36 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('insertDate')}
                         >
                           <div className="flex items-center space-x-1">
@@ -792,7 +792,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="w-24 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('nric')}
                         >
                           <div className="flex items-center space-x-1">
@@ -811,7 +811,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="w-28 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('personnelNumber')}
                         >
                           <div className="flex items-center space-x-1">
@@ -830,7 +830,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="w-28 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('actionType')}
                         >
                           <div className="flex items-center space-x-1">
@@ -849,7 +849,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="w-20 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('personnelArea')}
                         >
                           <div className="flex items-center space-x-1">
@@ -868,7 +868,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="w-28 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('status')}
                         >
                           <div className="flex items-center space-x-1">
@@ -887,7 +887,7 @@
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
+                          className="w-48 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
                           onClick={() => handleSort('errorMessage')}
                         >
                           <div className="flex items-center space-x-1">
@@ -904,7 +904,7 @@
                             )}
                           </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 hover:bg-[#15406c]">
+                        <th className="w-48 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 hover:bg-[#15406c]">
                           Actions
                         </th>
                       </tr>
@@ -942,21 +942,21 @@
                             <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                               {process.actionType}
                             </td>
-                            <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                            <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                               {process.personnelArea}
                             </td>
-                            <td className="w-[10%] px-6 py-4 whitespace-nowrap border-r border-gray-200">
-                              <span className={`px-3 py-1 text-sm rounded-full inline-flex items-center ${getStatusStyle(process.status).bgColor} ${getStatusStyle(process.status).textColor}`}>
+                            <td className="w-[10%] px-4 py-2 whitespace-nowrap border-r border-gray-200">
+                              <span className={`px-2.5 py-1 text-sm rounded-full inline-flex items-center ${getStatusStyle(process.status).bgColor} ${getStatusStyle(process.status).textColor}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full mr-2 ${getStatusStyle(process.status).dotColor}`}></span>
                                 {getStatusText(process.status)}
                               </span>
                             </td>
-                            <td className="w-[20%] px-6 py-4 text-sm text-gray-900 truncate border-r border-gray-200">
+                            <td className="w-[20%] px-6 py-4 text-sm text-gray-900 break-words border-r border-gray-200">
                               {process.errorMessage || '-'}
                             </td>
                             <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
-                              {process.action && (
-                                <div className="text-sm text-sm text-gray-500 truncate">
+                              {process.status === 'Others' && process.action && process.action.comment && (
+                                <div className="text-sm text-gray-500 whitespace-normal break-words">
                                   ({formatDate(process.action.insertDate)}):&nbsp;{process.action.comment}
                                 </div>
                               )}
