@@ -327,14 +327,14 @@
 
     //Checkbox handlers
     const handleSelectAll = () => {
+      const failIds = processes.filter(p => p.status.toUpperCase() === "FAIL").map(p => p.dataID);
       if (selectAll) {
         setSelectedRows(new Set());
         setSelectAll(false);
       } else {
-        setSelectedRows(new Set(allIds));
+        setSelectedRows(new Set(failIds));
         setSelectAll(true);
       }
-      setSelectAll(!selectAll);
     };
 
     const handleCheckboxChange = (id: number) => {
@@ -528,22 +528,25 @@
     };
 
     const onPopupSubmit = (status: 'Reviewed' | 'Others', rawComment?: string) => {
-      // Handle multiple select batch update
-      if (!selectedProcess && selectedRows.size > 0) {
-      Array.from(selectedRows).forEach((id) => {
-        const proc = processes.find((p) => p.dataID === id);
-        if (proc) {
-          handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags);
-        }
-      });
-      setSelectedRows(new Set());
-      setIsStatusModalOpen(false);
-      return;
-    }
-    // Single update (default)
-    if (selectedProcess == null) return;
+  // Batch update
+  if (!selectedProcess && selectedRows.size > 0) {
+    Array.from(selectedRows).forEach((id) => {
+      const proc = processes.find((p) => p.dataID === id);
+      if (proc) {
+        handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags);
+      }
+    });
+    setSelectedRows(new Set());
+    setIsStatusModalOpen(false);
+    return;
+  }
+  // Single row update
+  if (selectedProcess) {
     handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags);
-  };
+    setIsStatusModalOpen(false);
+    setSelectedProcess(null);
+  }
+};
 
     // Add handleSort function
     const handleSort = (column: ProcessSortableColumn) => {
@@ -733,29 +736,33 @@
                     )}
                   </div>
                   <div className="relative flex items-center">
-                    {selectedRows.size > 0 && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setSelectedProcess(null);
-                            setIsStatusModalOpen(true);
-                          }}
-                          className="bg-[#1a4f82] hover:bg-[#15406c] px-3 py-1 rounded-md text-white text-sm font-medium"
-                        >
-                          Update Status
-                        </button>
-                        <button
-                          onClick={() => setSelectedRows(new Set())}
-                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          aria-label="Clear selected rows"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  {selectedRows.size > 0 && (
+                    <div className="flex items-center ">
+                      <button
+                        onClick={() => {
+                          setSelectedProcess(null); // batch mode, not single process
+                          setIsStatusModalOpen(true);
+                        }}
+                        className="bg-[#1a4f82] hover:bg-[#15406c] px-3 py-1 rounded-md text-white text-sm font-medium flex items-center"
+                      >
+                        Update Status
+                        <div></div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedRows(new Set());
+                          setSelectAll(false);
+                        }}
+                        className="text-gray-400 hover:text-gray-600"
+                        aria-label="Clear selected rows"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
                 </div>
               </div>
               <div className="flex items-center space-x-4 w-full sm:w-auto justify-end">
@@ -824,7 +831,7 @@
                           <label className="flex items-center space-x-2">
                             <input 
                               type="checkbox"
-                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition-all duration-150"
+                              className="fixed h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition-all duration-150"
                               checked={selectAll} 
                               onChange={handleSelectAll}
                             />
@@ -1006,7 +1013,7 @@
                       ) : processes && processes.length > 0 ? (
                         sortProcessData(processes, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage ).map((process) => (
                           <tr key={process.dataID} className={`border-b border-gray-200 transition-colors ${selectedRows.has(process.dataID) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
-                            <td className="px-4 py-2">
+                            <td className="w-[2%] px-4 py-2">
                               {process.status === 'Fail' && (
                               <input
                                 type="checkbox"
@@ -1015,7 +1022,7 @@
                                 className="form-checkbox h-4 w-4 text-[#1a4f82] focus:ring-[#1a4f82] border-gray-300 rounded"
                               />)}
                             </td>
-                            <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-l border-gray-200">
+                            <td className="w-[8%] px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 border-l border-gray-200">
                               {process.batchId ?? ''}
                             </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-x border-gray-200">
@@ -1050,7 +1057,7 @@
                               )}
 
                               {/* if there’s no action yet and status is FAIL, show Update button */}
-                              {!process.action && process.status.toUpperCase() === 'FAIL' && (
+                              {(!process.action || !process.action.insertDate) && process.status.toUpperCase() === 'FAIL' && (
                                 <button
                                   onClick={() => {
                                     setSelectedProcess(process);
