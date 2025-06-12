@@ -189,6 +189,11 @@
     const totalRecords = activeTab === 'Processes' ? totalProcesses : totalTransactions;
     const totalPages = Math.ceil(totalRecords / rowsPerPage); 
 
+    // checkbox functions
+    const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+    const [selectAll, setSelectAll] = useState(false);
+    const allIds = activeTab === 'Processes' ? processes.map(p => p.dataID) : transactions.map(t => t.id);
+
     const dateRangeOptions = [
       'Last 7 days',
       'Last 30 days',
@@ -319,6 +324,32 @@
         return matchesSearch && matchesDateRange;
       });
     };
+
+    //Checkbox handlers
+    const handleSelectAll = () => {
+      if (selectAll) {
+        setSelectedRows(new Set());
+        setSelectAll(false);
+      } else {
+        setSelectedRows(new Set(allIds));
+        setSelectAll(true);
+      }
+      setSelectAll(!selectAll);
+    };
+
+    const handleCheckboxChange = (id: number) => {
+      setSelectedRows((prev) => {
+        const updated = new Set(prev);
+        if (updated.has(id)) {
+          updated.delete(id);
+        } else {
+          updated.add(id);
+        }
+        setSelectAll(updated.size === allIds.length);
+        return updated;
+      });
+    };
+
 
     // Add process filter function
     const filterProcesses = (processes: Process[]) => {
@@ -497,9 +528,22 @@
     };
 
     const onPopupSubmit = (status: 'Reviewed' | 'Others', rawComment?: string) => {
-      if (selectedProcess == null) return;
-      handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags);
-    };
+      // Handle multiple select batch update
+      if (!selectedProcess && selectedRows.size > 0) {
+      Array.from(selectedRows).forEach((id) => {
+        const proc = processes.find((p) => p.dataID === id);
+        if (proc) {
+          handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags);
+        }
+      });
+      setSelectedRows(new Set());
+      setIsStatusModalOpen(false);
+      return;
+    }
+    // Single update (default)
+    if (selectedProcess == null) return;
+    handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags);
+  };
 
     // Add handleSort function
     const handleSort = (column: ProcessSortableColumn) => {
@@ -688,6 +732,30 @@
                       </button>
                     )}
                   </div>
+                  <div className="relative flex items-center">
+                    {selectedRows.size > 0 && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setSelectedProcess(null);
+                            setIsStatusModalOpen(true);
+                          }}
+                          className="bg-[#1a4f82] hover:bg-[#15406c] px-3 py-1 rounded-md text-white text-sm font-medium"
+                        >
+                          Update Status
+                        </button>
+                        <button
+                          onClick={() => setSelectedRows(new Set())}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          aria-label="Clear selected rows"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center space-x-4 w-full sm:w-auto justify-end">
@@ -749,9 +817,19 @@
             {activeTab === 'Processes' && (
               <div className="h-full ">
                 <div className="relative">
-                  <table className="table-fixed w-full divide-y divide-gray-200">
+                  <table className="w-full divide-y divide-gray-200">
                     <thead className="sticky top-0 bg-[#1a4f82] z-10">
                       <tr>
+                        <th className="w-24 px-4 py-2 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]">                     
+                          <label className="flex items-center space-x-2">
+                            <input 
+                              type="checkbox"
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition-all duration-150"
+                              checked={selectAll} 
+                              onChange={handleSelectAll}
+                            />
+                          </label> 
+                        </th>
                         <th
                           scope="col"
                           className="w-20 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
@@ -927,32 +1005,41 @@
                         </tr>
                       ) : processes && processes.length > 0 ? (
                         sortProcessData(processes, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage ).map((process) => (
-                          <tr key={process.dataID} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                          <tr key={process.dataID} className={`border-b border-gray-200 transition-colors ${selectedRows.has(process.dataID) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                            <td className="px-4 py-2">
+                              {process.status === 'Fail' && (
+                              <input
+                                type="checkbox"
+                                checked={selectedRows.has(process.dataID)}
+                                onChange={() => handleCheckboxChange(process.dataID)}
+                                className="form-checkbox h-4 w-4 text-[#1a4f82] focus:ring-[#1a4f82] border-gray-300 rounded"
+                              />)}
+                            </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-l border-gray-200">
                               {process.batchId ?? ''}
                             </td>
-                            <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-x border-gray-200">
+                            <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-x border-gray-200">
                               {formatDate(process.insertDate)}
                             </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                               {process.nric}
                             </td>
-                            <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                            <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                               {process.personnelNumber}
                             </td>
-                            <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                            <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                               {process.actionType}
                             </td>
-                            <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
+                            <td className="w-[5%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                               {process.personnelArea}
                             </td>
-                            <td className="w-[10%] px-4 py-2 whitespace-nowrap border-r border-gray-200">
+                            <td className="w-[8%] px-6 py-4 whitespace-nowrap border-r border-gray-200">
                               <span className={`px-2.5 py-1 text-sm rounded-full inline-flex items-center ${getStatusStyle(process.status).bgColor} ${getStatusStyle(process.status).textColor}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full mr-2 ${getStatusStyle(process.status).dotColor}`}></span>
                                 {getStatusText(process.status)}
                               </span>
                             </td>
-                            <td className="w-[20%] px-6 py-4 text-sm text-gray-900 break-words border-r border-gray-200">
+                            <td className="w-[15%] px-6 py-4 text-sm text-gray-900 break-words border-r border-gray-200">
                               {process.errorMessage || '-'}
                             </td>
                             <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
