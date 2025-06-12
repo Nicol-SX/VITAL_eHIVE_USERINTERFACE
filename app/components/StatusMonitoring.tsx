@@ -489,12 +489,16 @@
         const isoTimestamp = toLocalISOString(new Date());
         const response = await fetch(`${config.API_URL}/hrp/processes/status`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
             status: newStatus === 'Reviewed' ? 0 : 1,
             comment: newStatus === 'Others' ? rawComment : '',
-            insertDate: isoTimestamp, 
+            insertDate: isoTimestamp,
             type,
+            effectiveDate: isoTimestamp,
+            updateDate: isoTimestamp,
             dataID,
           }),
         });
