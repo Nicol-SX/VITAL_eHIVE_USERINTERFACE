@@ -290,7 +290,7 @@
       } else if (activeTab === 'Processes') {
         fetchAllProcesses();
       }
-    }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, selectedBatchId, activeTab, processSortColumn, processSortDirection]);
+    }, [ page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, selectedBatchId, activeTab, processSortColumn, processSortDirection ]);
 
     // Add filter handlers
     const handleSearch = (searchTerm: string) => {
@@ -639,7 +639,7 @@
     return (
         <div className="flex h-screen w-screen">
         {/* Sidebar - Fixed on left */}
-        <div className="w-24 bg-[#1a4f82] text-white flex top-0 left-0 h-screen">
+        <div className="w-24 bg-[#1a4f82] text-white sticky top-0 left-0 h-screen z-[1000]">
           <div className="p-4 flex flex-col items-center space-y-8">
             <div className="flex flex-col items-center">
               <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center mb-2">
@@ -661,50 +661,46 @@
             </div>
 
             {/* Tabs */}
-            <div className="px-6 border-b">
-              <div className="flex space-x-8">
-                <button
-                  /*onClick={() => handleTabChange('Overview')} */
-                  disabled
-                  className={`py-4 px-2 relative ${
-                    activeTab === 'Overview'
-                      ? 'text-[#1a4f82] font-medium'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Overview
-                  {activeTab === 'Overview' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
-                  )}
-                </button>
-                <button
-                  onClick={() => handleTabChange('Batch')}
-                  className={`py-4 px-2 relative text-[#1a4f82] ${
-                    activeTab === 'Batch'
-                      ? 'font-bold'
-                      : 'font-medium'
-                  }`}
-                >
-                  Batch
-                  {activeTab === 'Batch' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
-                  )}
-                </button>
-                <button
-                  onClick={() => handleTabChange('Processes')}
-                  className={`py-4 px-2 relative text-[#1a4f82] ${
-                    activeTab === 'Processes'
-                      ? 'font-bold'
-                      : 'font-medium'
-                  }`}
-                >
-                  Processed
-                  {activeTab === 'Processes' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
-                  )}
-                </button>
-              </div>
+          <div className="px-4 sm:px-6 border-b">
+            <div className="flex flex-wrap sm:flex-nowrap space-x-4 sm:space-x-8">
+              <button
+                // Overview tab is greyed out and disabled
+                disabled
+                className={
+                  'py-4 px-2 relative text-gray-400 cursor-not-allowed bg-gray-100'
+                }
+              >
+                Overview
+                {/* No underline for Overview since it's disabled */}
+              </button>
+              <button
+                onClick={() => handleTabChange('Batch')}
+                className={`py-4 px-2 relative ${
+                  activeTab === 'Batch'
+                    ? 'text-[#1a4f82] font-medium'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Batch
+                {activeTab === 'Batch' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
+                )}
+              </button>
+              <button
+                onClick={() => handleTabChange('Processes')}
+                className={`py-4 px-2 relative ${
+                  activeTab === 'Processes'
+                    ? 'text-[#1a4f82] font-medium'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Processes
+                {activeTab === 'Processes' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
+                )}
+              </button>
             </div>
+          </div>
 
             {/* Search and Controls */}
             <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white space-y-4 sm:space-y-0">
@@ -767,16 +763,40 @@
               </div>
               <div className="flex items-center space-x-4 w-full sm:w-auto justify-end">
                 <div className="relative">
-                  <button 
-                    onClick={() => setShowDateRangeDropdown(!showDateRangeDropdown)}
+                  <button
+                    onClick={() => setShowDateRangeDropdown((prev) => !prev)}
                     className="flex items-center space-x-2 hover:bg-gray-50 px-3 py-2 rounded-md whitespace-nowrap"
                   >
                     <span className="text-sm">{selectedDateRange}</span>
-                    <svg className={`w-4 h-4 transition-transform ${showDateRangeDropdown ? 'transform rotate-180' : ''}`} 
+                    <svg className={`w-4 h-4 transition-transform ${showDateRangeDropdown ? 'transform rotate-180' : ''}`}
                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
+                  {showDateRangeDropdown && (
+                    <div
+                      className="absolute right-0 mt-2 bg-white rounded-md shadow-lg z-50 border max-h-96 overflow-y-auto min-w-[10rem]"
+                      role="listbox"
+                      aria-label="Date range options"
+                    >
+                      {dateRangeOptions.map((option) => (
+                        <button
+                          key={option}
+                          onClick={() => {
+                            setSelectedDateRange(option);
+                            setShowDateRangeDropdown(false);
+                          }}
+                          className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
+                            selectedDateRange === option ? 'bg-gray-50 text-[#1a4f82]' : 'text-gray-700'
+                          }`}
+                          role="option"
+                          aria-selected={selectedDateRange === option}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="relative">
                   <button 
@@ -795,30 +815,7 @@
               </div>
             </div>
           </div>
-
-          {/* Dropdowns - Outside of table container */}
-          {showDateRangeDropdown && (
-            <div 
-              className="fixed top-[200px] right-[180px] w-48 bg-white rounded-md shadow-lg border max-h-[400px] overflow-y-auto z-[999999] "
-              role="listbox"
-              aria-label="Date range options"
-            >
-              {dateRangeOptions.map((option) => (
-                <button
-                  key={option}
-                  onClick={() => handleDateRangeSelect(option as DateRangeOption)}
-                  className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-                    selectedDateRange === option ? 'bg-gray-50 text-[#1a4f82]' : 'text-gray-700'
-                  }`}
-                  role="option"
-                  aria-selected={selectedDateRange === option}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          )}
-
+          
           {/* Table Container - Scrollable area */}
           <div className="flex-1 overflow-y-scroll overflow-x-auto">
             {activeTab === 'Processes' && (
@@ -1098,7 +1095,7 @@
                   }}
                   className="border-0 bg-transparent text-sm text-gray-700 focus:ring-0 cursor-pointer"
                 >
-                  {[50, 100].map((size) => (
+                  {[2, 50, 100].map((size) => (
                     <option key={size} value={size}>
                       {size}
                     </option>

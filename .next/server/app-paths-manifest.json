@@ -1,5 +1,4 @@
 {
-  "/processes/page": "app/processes/page.js",
-  "/page": "app/page.js",
-  "/batch/page": "app/batch/page.js"
+  "/batch/page": "app/batch/page.js",
+  "/processes/page": "app/processes/page.js"
 }

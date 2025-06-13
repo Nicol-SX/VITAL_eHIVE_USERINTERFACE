@@ -69,7 +69,7 @@ interface BatchResponse {
   error?: string;
 }
 
-const HRPS_API_BASE_URL = '/hrps-api/HRP';  
+// const HRPS_API_BASE_URL = '/hrps-api/HRP';  
 
 interface BatchProps {
   defaultTab?: 'Overview' | 'Batch' | 'Processes';
@@ -185,7 +185,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [selectedRow, setSelectedRow] = useState<string | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
 
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
   const [searchDate, setSearchDate] = useState('');
@@ -197,11 +197,12 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   //Batches
+  const [searchTerm, setSearchTerm] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionTypesLoading, setIsActionTypesLoading] = useState(true);
   const [totalTransactions, setTotalTransactions] = useState(0);
-  const [totalPage, setTotalPage] = useState(0);
+  const [totalPage, setTotalPage] = useState(1);
   const [dataPerPage, setDataPerPage] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -272,15 +273,12 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     
     switch (tab) {
       case 'Overview':
-        //window.location.href = '/';
         router.push('/');
         break;
       case 'Batch':
-        //window.location.href = '/batch';
         router.push('/batch');
         break;
       case 'Processes':
-        //window.location.href = '/processes';
         router.push('/processes');
         break;
       default:
@@ -372,14 +370,14 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     return result;
   }
 
-  const handleSearch = (searchTerm: string): void => {
-    setSearchDate(searchTerm);
+  const handleSearchChange = (val: string) => {
+    setSearchTerm(val);
     setPage(0);
   };
 
-  const handleDateRangeChange = (range: DateRangeOption): void => {
+  const handleDateRangeChange = (range: DateRangeOption) => {
     setSelectedDateRange(range);
-     setPage(0);
+    setPage(0);
   };
 
   const handleDateRangeSelect = (range: DateRangeOption): void => {
@@ -387,31 +385,17 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     setShowDateRangeDropdown(false);
   };
 
-  const handleProcessSearch = (searchTerm: string): void => {
-    setSearchDate(searchTerm);
-    setPage(0);
-  };
-
-  const handleProcessDateRangeChange = (range: DateRangeOption): void => {
-    setSelectedDateRange(range);
-    setPage(0);
-  };
-
-  const handleProcessDateRangeSelect = (range: DateRangeOption): void => {
-    handleProcessDateRangeChange(range);
-    setShowDateRangeDropdown(false);
-  };
-
   // Add sorting function
   const handleSort = (column: SortableColumn) => {
-    console.log('🔄 HANDLING SORT:', { column, currentSort: sortColumn, currentDirection: sortDirection });
-    if (column === sortColumn) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('desc');
-    }
-  };
+  if (sortColumn === column) {
+    setSortDirection(dir => dir === 'asc' ? 'desc' : 'asc');
+  } else {
+    setSortColumn(column);
+    setSortDirection('desc');
+  }
+  setPage(0); // reset to first page on sort
+};
+
 
   // Add sorting function for the data
   const sortData = (data: Transaction[]) => {
@@ -460,10 +444,8 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
       // Search filter
       const matchesSearch =
         searchTerm === '' ||
-        (transaction.batchJobId && (
-          transaction.batchJobId.toString().toLowerCase().includes(searchTerm) ||
-          updateFormatDate(transaction.batchJobId.toString()).toLowerCase().includes(searchTerm)
-        ))
+       (transaction.batchJobId &&
+          transaction.batchJobId.toString().toLowerCase().includes(searchTerm))
         ||
         (transaction.hrpsDateTime && (
           transaction.hrpsDateTime.toLowerCase().includes(searchTerm) ||
@@ -501,12 +483,12 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
       });
 
       const queryParams = new URLSearchParams({
-        page: (options.page ?? page).toString(),
-        limit: (options.limit ?? rowsPerPage).toString(),
-        dateRange: options.dateRange ?? selectedDateRange,
-        sortColumn: options.sortColumn ?? sortColumn,
-        sortDirection: (options.sortDirection ?? sortDirection).toLowerCase()
-      });
+        page: String(page),
+          limit: String(rowsPerPage),
+          dateRange: selectedDateRange,
+          sortColumn,
+          sortDirection,
+        });
 
       // Add search term if provided
       if (options.searchTerm) {
@@ -520,19 +502,19 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
       const result = await response.json();
       console.log('📦 RECEIVED DATA:', result);
 
-      if (result.transactions?.data) {
-        console.log('✅ SETTING TRANSACTIONS:', result.transactions.data);
-        const sortedData = sortData(result.transactions.data);
+      if (result.data?.data) {
+        console.log('✅ SETTING TRANSACTIONS:', result.data.data);
+        const sortedData = sortData(result.data.data);
         setTransactions(sortedData);
-        setTotalTransactions(result.transactions.total);
-        setTotalPage(result.transactions.totalPage);
-        setDataPerPage(result.transactions.dataPerPage);
-        setCurrentPage(result.transactions.currentPage);
+        setTotalTransactions(result.data.totalRecords);
+        setTotalPage(result.data.totalPage);
+        setDataPerPage(result.data.dataPerPage);
+        setCurrentPage(result.data.currentPage);
       } else {
         console.log('❌ NO VALID TRANSACTIONS DATA');
         setTransactions([]);
         setTotalTransactions(0);
-      }
+      };
     } catch (err) {
       console.error('❌ ERROR:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -545,15 +527,13 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
 
 
   // When the user changes rows per page, reset page to 0
-  const handleRowsPerPageChange = (newRowsPerPage: number) => {
+    const handleRowsPerPageChange = (newRowsPerPage: number) => {
     setRowsPerPage(newRowsPerPage);
     setPage(0);
   };
 
   // When the user changes page
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
+  const handlePageChange = (newPage: number) => setPage(newPage);
 
   // Centralized effect to fetch data when any filter or pagination changes
   useEffect(() => {
@@ -609,12 +589,12 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     });
   };
 
-  /* Update useEffect to handle process filtering
+  // Update useEffect to handle process filtering
   useEffect(() => {
     const fetchProcessData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${config.API_URL}/hrp/processes?batchId=${batchId}&page=${page}&limit=${rowsPerPage}`);
+        const response = await fetch(`${config.API_URL}/hrp/processes?`);
         const data = await response.json();
         
         if (data.error) {
@@ -637,7 +617,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     if (activeTab === 'Processes') {
       //fetchProcessData();
     }
-  }, [page, rowsPerPage, selectedDateRange, processSortColumn, processSortDirection, searchDate, activeTab]); */
+  }, [page, rowsPerPage, selectedDateRange, processSortColumn, processSortDirection, searchDate, activeTab]);
 
   // Add debug logging for render
   console.log('🎨 RENDERING - Current state:', {
@@ -657,17 +637,9 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   //Processes is Transaction
   const handleViewTransactionDetails = (hrpsDateTime: string) => {
     const formattedDate = formatDate(hrpsDateTime);
-    // Redirect to processes page with batch ID
-    //window.location.href = `/processes?batchId=${batchJobId}`;
-    //window.location.href = `/processes?apiSearch=${encodeURIComponent(formattedDate)}`;
     router.push(`/processes?apiSearch=${encodeURIComponent(formattedDate)}`);
   };
 
-  const showAllProcesses = () => {
-    // Redirect to processes page without any search parameters
-    //window.location.href = '/processes';
-    router.push('/processes');
-  };
 
   // Update pagination section
   const totalPages = totalPage
@@ -678,7 +650,6 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
-  //const [downloadDropdownPos, setDownloadDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const handleDateButtonClick = () => {
     if (dateButtonRef.current) {
@@ -691,18 +662,6 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     }
     setShowDateRangeDropdown((prev) => !prev);
   };
-
-  /* const handleDownloadButtonClick = () => {
-    if (downloadButtonRef.current) {
-      const rect = downloadButtonRef.current.getBoundingClientRect();
-      setDownloadDropdownPos({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      });
-    }
-    setShowDownloadDropdown((prev) => !prev);
-  };*/
 
   // Download CSV handler for batch
   const handleDownloadCSV = async () => {
@@ -866,14 +825,14 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                   id="search-input"
                   name="search"
                   value={searchDate}
-                  onChange={(e) => handleSearch(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   placeholder={`Search ${activeTab.toLowerCase()}...`}
                   className="border rounded px-3 py-1 text-sm w-full sm:w-64 focus:outline-none focus:border-[#1a4f82] pr-8"
                   aria-label="Search transactions"
                 />
                 {searchDate && (
                   <button
-                    onClick={() => handleSearch('')}
+                    onClick={() => handleSearchChange('')}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     aria-label="Clear search"
                   >
@@ -895,17 +854,10 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                   aria-haspopup="listbox"
                 >
                   <span className="text-sm whitespace-nowrap">{selectedDateRange}</span>
-                  {/* <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7-7 7-7" />
-                  </svg> */}
-                  <svg 
-                          className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                  <svg className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
               </div>
               <div className="relative">
@@ -962,7 +914,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                 <tr>
                   <th 
                     scope="col" 
-                    className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                    className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
                     onClick={() => handleSort('batchJobId')}
                   >
                     <div className="flex items-center space-x-1">
@@ -1081,7 +1033,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                     <tr key={batch.batchJobId} 
                     className="border-b border-gray-200 hover:bg-gray-50 transition-colors"> 
                     
-                      <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
+                      <td className="w-[10%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
                         {batch.batchJobId}
                       </td>
                       <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-200">
@@ -1117,7 +1069,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
                             <div className="font-semibold mb-1">Action Types:</div>
                             {isHoveredActionTypesLoading ? (
                               <div className="flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                               </div>
                             ) : hoveredActionTypesError ? (
                               <div>{hoveredActionTypesError}</div>
@@ -1176,15 +1128,15 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         </div>
 
         {/* Pagination */}
-        <div className="sticky bottom-0 right-0 left-24 bg-white border-t border-gray-200">
+        <div className="sticky bottom-0 bg-white border-t border-gray-200">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-700">Rows per page:</span>
               <select
                 value={rowsPerPage}
                 onChange={(event) => {
-                  const newRowsPerPage = parseInt(event.target.value, 10);
-                  handleRowsPerPageChange(newRowsPerPage);
+                  setRowsPerPage(parseInt(event.target.value, 10));
+                  setPage(0);
                 }}
                 className="border-0 bg-transparent text-sm text-gray-700 focus:ring-0 cursor-pointer"
               >
@@ -1201,114 +1153,53 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
 
             <div className="flex items-center">
               <span className="text-sm text-gray-700 mr-4">
-                Showing {page * rowsPerPage + 1}-{Math.min((page + 1) * rowsPerPage, totalTransactions)} of {totalTransactions}
+                Showing {startItem}-{endItem} of {totalTransactions}
               </span>
               <nav className="flex items-center space-x-1">
                 <button
-                  onClick={() => {
-                    if (page > 0) {
-                      handlePageChange(0);
-                    }
-                  }}
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
                   disabled={page === 0}
-                  className={`p-1 rounded-full ${
-                    page === 0 
-                      ? 'text-gray-300 cursor-not-allowed' 
-                      : 'text-gray-700 hover:bg-gray-100'
+                  className={`px-2 py-1 text-sm rounded-md ${
+                    page === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
                   }`}
+                  aria-label="Previous page"
                 >
-                  <span className="inline-flex items-center m-0 p-0">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    <svg className="w-5 h-5 -ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </span>
+                  &lt;
+                </button>
+
+                {Array.from({ length: totalPage }).map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setPage(idx)}
+                    className={`px-2 py-1 text-sm rounded-md ${
+                      page === idx ? 'bg-[#1a4f82] text-white' : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    aria-label={`Page ${idx + 1}`}
+                  >
+                    {idx + 1}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setPage((prev) => Math.min(prev + 1, totalPage - 1))}
+                  disabled={page + 1 >= totalPage}
+                  className={`px-2 py-1 text-sm rounded-md ${
+                    page + 1 >= totalPage ? 'text-gray-300 cursor-not-allowed': 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  aria-label="Next page"
+                >
+                  &gt;
                 </button>
 
                 <button
-                  onClick={() => {
-                    if (page > 0) {
-                      handlePageChange(page - 1);
-                    }
-                  }}
-                  disabled={page === 0}
-                  className={`p-1 rounded-full ${
-                    page === 0 
-                      ? 'text-gray-300 cursor-not-allowed' 
-                      : 'text-gray-700 hover:bg-gray-100'
+                  onClick={() => setPage(totalPage - 1)}
+                  disabled={page === totalPage - 1}
+                  className={`px-2 py-1 text-sm rounded-md ${
+                    page === totalPage - 1 ? 'text-gray-300 cursor-not-allowed': 'text-gray-700 hover:bg-gray-100'
                   }`}
+                  aria-label="Last page"
                 >
-                  <span className="inline-flex items-center">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    
-                  </span>
-                </button>
-
-                <div className="flex flex-wrap justify-center gap-1">
-                  {totalPages > 0 && Array.from({ length: totalPages }).map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        handlePageChange(idx);
-                      }}
-                      className={`px-3 py-1 text-sm rounded-full ${
-                        page === idx
-                          ? 'bg-[#1a4f82] text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      {idx + 1}
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => {
-                    if (page < totalPages - 1) {
-                      handlePageChange(page + 1);
-                    }
-                  }}
-                  disabled={page >= totalPages - 1}
-                  className={`p-1 rounded-full ${
-                    page >= totalPages - 1
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                <span className="inline-flex items-center">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                </span>
-                  
-                  
-                </button>
-
-                <button
-                  onClick={() => {
-                    if (page < totalPages - 1) {
-                      handlePageChange(totalPages - 1);
-                    }
-                  }}
-                  disabled={page >= totalPages - 1}
-                  className={`p-1 rounded-full ${
-                    page >= totalPages - 1
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <span className="inline-flex items-center">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                    <svg className="w-5 h-5 -ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </span>
+                  &gt;&gt;
                 </button>
               </nav>
             </div>
