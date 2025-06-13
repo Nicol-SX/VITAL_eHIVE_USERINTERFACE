@@ -1,4 +1,4 @@
-  'use client';
+ 'use client';
 
   import React, { useState, useEffect } from 'react';
   import { useRouter } from 'next/navigation';
@@ -35,7 +35,7 @@
     status: string;
     errorMessage: string;
     name: string;
-    batchId: string;
+    batchJobId: number
     action: ProcessAction;
   }
 
@@ -136,7 +136,7 @@
   }
 
   // Add type for sortable columns
-  type ProcessSortableColumn = 'batchId' |'personnelNumber' | 'insertDate' |'nric' |'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage';
+  type ProcessSortableColumn = 'batchJobId' |'personnelNumber' | 'insertDate' |'nric' |'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage';
   type TabType = 'Overview' | 'Processes' | 'Batch';
   type DateRangeOption = 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 6 months' | 'Last 1 year';
 
@@ -145,7 +145,7 @@
     console.log('🔄 SORTING PROCESS DATA:', { currentSortColumn, currentSortDirection });
     return [...data].sort((a, b) => {
       const aValue = a[currentSortColumn];
-      const bValue = b[currentSortColumn];
+      const bValue = b[currentSortColumn]; 
 
       // Handle date fields
       if (currentSortColumn === 'insertDate') {
@@ -175,7 +175,7 @@
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
     const [sortColumn, setSortColumn] = useState<ProcessSortableColumn>('insertDate');
     const [selectedBatchId, setSelectedBatchId] = useState<string | null>(initialBatchId || null);
-    
+
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [totalTransactions, setTotalTransactions] = useState(0);
@@ -220,7 +220,7 @@
     // Navigation handler
     const handleTabChange = (tab: 'Overview' | 'Batch' | 'Processes') => {
       if (tab === activeTab) return;
-      
+
       switch (tab) {
         case 'Overview':
           router.push('/');
@@ -240,7 +240,7 @@
         setIsLoading(true);
         const response = await fetch(`${config.API_URL}/hrp/processes?batchId=${batchId}&page=${page}&limit=${rowsPerPage}`);
         const data = await response.json();
-        
+
         if (data.error) {
           setError(data.error);
           setProcesses([]);
@@ -270,7 +270,7 @@
         setIsLoading(true);
         const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}`);
         const data = await response.json();
-        
+
         if (data.error) {
           setError(data.error);
         } else {
@@ -384,7 +384,7 @@
           if (activeTab === 'Batch') {
             const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${sortColumn}&sortDirection=${sortDirection}`);
             const data = await response.json();
-            
+
             if (data.error) {
               setError(data.error);
             } else {
@@ -396,7 +396,7 @@
           } else if (activeTab === 'Processes') {
             const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}`);
             const data = await response.json();
-            
+
             if (data.errorMessage) {
               setError(data.errorMessage);
             } else {
@@ -405,7 +405,7 @@
               setProcesses(filteredData);
               setTotalProcesses(filteredData.length);
               console.log(filteredData, filteredData.length);
-              
+
             }
           }
         } catch (error) {
@@ -447,7 +447,7 @@
       const rows = processes.map((proc) => {
         const formattedDate = formatDate(proc.insertDate);
         const excelDate = `="${formattedDate}"`; 
-        const batch = proc.batchId != null ? String(proc.batchId) : '';
+        const batch = proc.batchJobId != null ? String(proc.batchJobId) : '';
         const errMsg = proc.errorMessage?.trim() !== '' ? proc.errorMessage : '';
 
         return [
@@ -489,16 +489,12 @@
         const isoTimestamp = toLocalISOString(new Date());
         const response = await fetch(`${config.API_URL}/hrp/processes/status`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             status: newStatus === 'Reviewed' ? 0 : 1,
             comment: newStatus === 'Others' ? rawComment : '',
-            insertDate: isoTimestamp,
+            insertDate: isoTimestamp, 
             type,
-            effectiveDate: isoTimestamp,
-            updateDate: isoTimestamp,
             dataID,
           }),
         });
@@ -532,25 +528,25 @@
     };
 
     const onPopupSubmit = (status: 'Reviewed' | 'Others', rawComment?: string) => {
-  // Batch update
-  if (!selectedProcess && selectedRows.size > 0) {
-    Array.from(selectedRows).forEach((id) => {
-      const proc = processes.find((p) => p.dataID === id);
-      if (proc) {
-        handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags);
+      // Batch update
+      if (!selectedProcess && selectedRows.size > 0) {
+        Array.from(selectedRows).forEach((id) => {
+          const proc = processes.find((p) => p.dataID === id);
+          if (proc) {
+            handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags);
+          }
+        });
+        setSelectedRows(new Set());
+        setIsStatusModalOpen(false);
+        return;
       }
-    });
-    setSelectedRows(new Set());
-    setIsStatusModalOpen(false);
-    return;
-  }
-  // Single row update
-  if (selectedProcess) {
-    handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags);
-    setIsStatusModalOpen(false);
-    setSelectedProcess(null);
-  }
-};
+      // Single row update
+      if (selectedProcess) {
+        handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags);
+        setIsStatusModalOpen(false);
+        setSelectedProcess(null);
+      }
+    };
 
     // Add handleSort function
     const handleSort = (column: ProcessSortableColumn) => {
@@ -584,7 +580,7 @@
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           const data = await response.json();
-          
+
           if (data.error) {
             setError(data.error);
           } else {
@@ -835,7 +831,7 @@
                           <label className="flex items-center space-x-2">
                             <input 
                               type="checkbox"
-                              className="fixed h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition-all duration-150"
+                              className="flex h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition-all duration-150"
                               checked={selectAll} 
                               onChange={handleSelectAll}
                             />
@@ -844,11 +840,11 @@
                         <th
                           scope="col"
                           className="w-20 px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c]"
-                          onClick={() => handleSort('batchId')}
+                          onClick={() => handleSort('batchJobId')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Batch ID</span>
-                            {sortColumn === 'batchId' && (
+                            {sortColumn === 'batchJobId' && (
                               <svg
                                 className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                 fill="none"
@@ -1016,7 +1012,7 @@
                         </tr>
                       ) : processes && processes.length > 0 ? (
                         sortProcessData(processes, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage ).map((process) => (
-                          <tr key={process.dataID} className={`border-b border-gray-200 transition-colors ${selectedRows.has(process.dataID) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                          <tr key={process.dataID} className={`border-b border-gray-200 transition-colors ${selectedRows.has(process.dataID) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>                            
                             <td className="w-[2%] px-4 py-2">
                               {process.status === 'Fail' && (
                               <input
@@ -1027,7 +1023,7 @@
                               />)}
                             </td>
                             <td className="w-[8%] px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 border-l border-gray-200">
-                              {process.batchId ?? ''}
+                              {process.batchJobId ?? ''}
                             </td>
                             <td className="w-[10%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-x border-gray-200">
                               {formatDate(process.insertDate)}
@@ -1183,4 +1179,4 @@
         )}
       </div>
     );
-  }
+    }

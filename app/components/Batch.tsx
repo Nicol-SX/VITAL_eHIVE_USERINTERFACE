@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { Tooltip, Button } from "@material-tailwind/react";
 import { useRouter } from 'next/navigation';
 import config from '../common/config';
 
@@ -241,6 +242,18 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     { id: 'batch', label: 'Batch Table' }
   ] as const;
 
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [selectedProcessId, setSelectedProcessId] = useState<number | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<StatusOption | null>(null);
+  const [comments, setComments] = useState('');
+  const [processComments, setProcessComments] = useState<Record<number, { status: string; comments: string }>>({});
+
+
+  const [batchProcesses, setBatchProcesses] = useState<Process[]>([]);
+  const [isBatchProcessesLoading, setIsBatchProcessesLoading] = useState(false);
+
+  const [batchDate, setBatchDate] = useState<string | null>(null);
+
   // Add debug logging for initial render
   useEffect(() => {
     console.log('Initial render - defaultTab:', defaultTab);
@@ -311,7 +324,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         apiSearch: hrpsDate
       });
 
-      const response = await fetch( `${config.API_URL}/batch?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${sortColumn}&sortDirection=${sortDirection}`);
+      const response = await fetch(`${config.API_URL}/hrp/processes?${queryParams.toString()}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -364,10 +377,10 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     setPage(0);
   };
 
-  // const handleDateRangeChange = (range: DateRangeOption): void => {
-  //   setSelectedDateRange(range);
-  //   setPage(0);
-  // };
+  const handleDateRangeChange = (range: DateRangeOption): void => {
+    setSelectedDateRange(range);
+     setPage(0);
+  };
 
   const handleDateRangeSelect = (range: DateRangeOption): void => {
     handleDateRangeChange(range);
@@ -500,7 +513,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         queryParams.append('search', options.searchTerm);
       }
 
-      const response = await fetch( `${config.API_URL}/hrp/batch?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${sortColumn}&sortDirection=${sortDirection}`);
+      const response = await fetch(`${config.API_URL}/hrp/batches?${queryParams.toString()}`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -530,11 +543,6 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     }
   };
 
-  // When the user changes the date range, reset page to 0
-  const handleDateRangeChange = (range: DateRangeOption) => {
-    setSelectedDateRange(range);
-    setPage(0);
-  };
 
   // When the user changes rows per page, reset page to 0
   const handleRowsPerPageChange = (newRowsPerPage: number) => {
@@ -601,12 +609,12 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     });
   };
 
-  // Update useEffect to handle process filtering
+  /* Update useEffect to handle process filtering
   useEffect(() => {
     const fetchProcessData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}`);
+        const response = await fetch(`${config.API_URL}/hrp/processes?batchId=${batchId}&page=${page}&limit=${rowsPerPage}`);
         const data = await response.json();
         
         if (data.error) {
@@ -627,9 +635,9 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     };
 
     if (activeTab === 'Processes') {
-      fetchProcessData();
+      //fetchProcessData();
     }
-  }, [page, rowsPerPage, selectedDateRange, processSortColumn, processSortDirection, searchDate, activeTab]);
+  }, [page, rowsPerPage, selectedDateRange, processSortColumn, processSortDirection, searchDate, activeTab]); */
 
   // Add debug logging for render
   console.log('🎨 RENDERING - Current state:', {
@@ -670,7 +678,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
-  const [downloadDropdownPos, setDownloadDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  //const [downloadDropdownPos, setDownloadDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const handleDateButtonClick = () => {
     if (dateButtonRef.current) {
@@ -684,7 +692,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     setShowDateRangeDropdown((prev) => !prev);
   };
 
-  const handleDownloadButtonClick = () => {
+  /* const handleDownloadButtonClick = () => {
     if (downloadButtonRef.current) {
       const rect = downloadButtonRef.current.getBoundingClientRect();
       setDownloadDropdownPos({
@@ -694,7 +702,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
       });
     }
     setShowDownloadDropdown((prev) => !prev);
-  };
+  };*/
 
   // Download CSV handler for batch
   const handleDownloadCSV = async () => {
