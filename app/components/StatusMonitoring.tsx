@@ -8,6 +8,7 @@
   import { DateRangeOption, dateRangeOptions } from '../types/general';
   import { Process } from '../types/Process';
 import { getStatusStyle, getStatusText } from '../utils/Status';
+import { getDateRangeDays } from '../utils/Date';
 
 
   // Update StatusMonitoringProps interface

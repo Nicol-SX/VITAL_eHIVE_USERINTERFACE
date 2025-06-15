@@ -1,5 +1,5 @@
  // Add helper function to convert date range to days
-  const getDateRangeDays = (dateRange: string): number => {
+  export const getDateRangeDays = (dateRange: string): number => {
     switch (dateRange) {
       case 'Last 7 days':
         return 7;
