@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { listenerCount } from 'node:stream';
 
-// Update base API URL to use the complete URL
+// Update base API URL to use the complete URL (.env)
 const HRPS_API_BASE_URL = 'http://192.168.1.185/hrps-api';
 
 // Force dynamic rendering and specify runtime

@@ -142,7 +142,7 @@
 
   // Add sorting function for process data
   const sortProcessData = (data: Process[], currentSortColumn: ProcessSortableColumn, currentSortDirection: 'asc' | 'desc') => {
-    console.log('🔄 SORTING PROCESS DATA:', { currentSortColumn, currentSortDirection });
+    // console.log('🔄 SORTING PROCESS DATA:', { currentSortColumn, currentSortDirection });
     return [...data].sort((a, b) => {
       const aValue = a[currentSortColumn];
       const bValue = b[currentSortColumn]; 
@@ -206,14 +206,13 @@
     const [selectedProcess, setSelectedProcess] = useState<Process | null>(null);
     const [initialStatus, setInitialStatus] = useState<string | null>(null);
     // const [processComments, setProcessComments] = useState<{[id: number]: { user: string; timestamp: string; comment: string }; }>({});
-
     // Add useEffect to get batchId from URL
     useEffect(() => {
       const urlParams = new URLSearchParams(window.location.search);
       const batchId = urlParams.get('batchId');
       if (batchId) {
         setSelectedBatchId(batchId);
-        console.log('🔍 Setting batchId from URL:', batchId);
+        // console.log('🔍 Setting batchId from URL:', batchId);
       }
     }, []);
 
@@ -404,7 +403,7 @@
               const filteredData = filterProcesses(data.data.data);
               setProcesses(filteredData);
               setTotalProcesses(filteredData.length);
-              console.log(filteredData, filteredData.length);
+              // console.log(filteredData, filteredData.length);
 
             }
           }
@@ -550,7 +549,7 @@
 
     // Add handleSort function
     const handleSort = (column: ProcessSortableColumn) => {
-      console.log('🔄 HANDLING SORT:', { column, currentSort: sortColumn, currentDirection: sortDirection });
+      // console.log('🔄 HANDLING SORT:', { column, currentSort: sortColumn, currentDirection: sortDirection });
       if (column === sortColumn) {
         setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
       } else {
@@ -573,7 +572,7 @@
             ...(selectedBatchId && { batchId: selectedBatchId })
           });
 
-          console.log('🔍 Fetching processes with params:', Object.fromEntries(queryParams.entries()));
+          // console.log('🔍 Fetching processes with params:', Object.fromEntries(queryParams.entries()));
 
           const response = await fetch(`${config.API_URL}/hrp/processes?${queryParams.toString()}`);
           if (!response.ok) {
@@ -584,17 +583,17 @@
           if (data.error) {
             setError(data.error);
           } else {
-            console.log('📦 Received process data:', {
-              total: data.data.total,
-              count: data.data.data.length,
-              batchId: selectedBatchId
-            });
+            // console.log('📦 Received process data:', {
+            //   total: data.data.total,
+            //   count: data.data.data.length,
+            //   batchId: selectedBatchId
+            // });
             const sortedData = sortProcessData(data.data.data, sortColumn, sortDirection);
             setProcesses(sortedData);
             setTotalProcesses(data.data.total);
           }
         } catch (error) {
-          console.error('❌ Error fetching process data:', error);
+          // console.error('❌ Error fetching process data:', error);
           setError('Failed to fetch process data');
         } finally {
           setIsLoading(false);

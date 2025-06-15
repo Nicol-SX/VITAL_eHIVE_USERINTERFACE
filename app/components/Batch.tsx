@@ -35,17 +35,6 @@ interface Process {
   action: ProcessAction;
 }
 
-interface ProcessResponse {
-  message: string;
-  errorMessage: string;
-  data: {
-    currentPage: number;
-    totalPage: number;
-    dataPerPage: number;
-    data: Process[];
-  };
-}
-
 interface Batch {
   batchJobId: number;
   hrpsDateTime: string;
@@ -61,47 +50,12 @@ interface ActionType {
   count: number;
 }
 
-interface BatchResponse {
-  transactions: {
-    data: Batch[];
-    total: number;
-  };
-  error?: string;
-}
-
-// const HRPS_API_BASE_URL = '/hrps-api/HRP';  
-
 interface BatchProps {
   defaultTab?: 'Overview' | 'Batch' | 'Processes';
 }
 
 // Add proper type for event handlers
 type TabType = 'Overview' | 'Batch' | 'Processes';
-
-const getStatusText = (status: string): string => {
-  return status;
-};
-
-const getStatusStyle = (status: string): { bgColor: string; textColor: string; dotColor: string } => {
-  switch (status.toUpperCase()) {
-    case 'SUCCESS':
-      return { bgColor: 'bg-green-100', textColor: 'text-green-800', dotColor: 'bg-green-600' };
-    case 'FAILED':
-      return { bgColor: 'bg-red-100', textColor: 'text-red-800', dotColor: 'bg-red-600' };
-    case 'PENDING':
-      return { bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', dotColor: 'bg-yellow-600' };
-    case 'IN_PROGRESS':
-      return { bgColor: 'bg-blue-100', textColor: 'text-blue-800', dotColor: 'bg-blue-600' };
-    case 'CANCELLED':
-      return { bgColor: 'bg-gray-100', textColor: 'text-gray-800', dotColor: 'bg-gray-600' };
-    case 'REVIEWED':
-      return { bgColor: 'bg-purple-100', textColor: 'text-purple-800', dotColor: 'bg-purple-600' };
-    case 'OTHERS':
-      return { bgColor: 'bg-gray-100', textColor: 'text-gray-800', dotColor: 'bg-gray-600' };
-    default:
-      return { bgColor: 'bg-gray-100', textColor: 'text-gray-800', dotColor: 'bg-gray-600' };
-  }
-};
 
 const getDateRangeDays = (dateRange: string): number => {
   switch (dateRange) {
@@ -166,27 +120,17 @@ interface FetchBatchOptions {
 }
 
 export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
-  console.log('🚀 BATCH COMPONENT MOUNTING');
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('Batch');
-  console.log('📌 Initial activeTab:', activeTab);
-  
-  // Add immediate effect to verify component lifecycle
-  useEffect(() => {
-    console.log('🔄 BATCH COMPONENT MOUNTED');
-    return () => {
-      console.log('👋 BATCH COMPONENT UNMOUNTING');
-    };
-  }, []);
 
-  const [showActionTypes, setShowActionTypes] = useState(false);
+  // const [showActionTypes, setShowActionTypes] = useState(false);
   const [showActionTypesTooltip, setShowActionTypesTooltip] = useState(false);
 
   const [selectedRow, setSelectedRow] = useState<string | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
 
-  const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
 
   const [searchDate, setSearchDate] = useState('');
   const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false);
@@ -256,20 +200,20 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [batchDate, setBatchDate] = useState<string | null>(null);
 
   // Add debug logging for initial render
-  useEffect(() => {
-    console.log('Initial render - defaultTab:', defaultTab);
-    console.log('Initial render - activeTab:', activeTab);
-  }, [defaultTab, activeTab]);
+  // useEffect(() => {
+  //   // console.log('Initial render - defaultTab:', defaultTab);
+  //   // console.log('Initial render - activeTab:', activeTab);
+  // }, [defaultTab, activeTab]);
 
   // Single declaration of handlers with proper types
   const handleTabChange = (tab: TabType): void => {
-    console.log('Tab change requested:', tab);
-    console.log('Current activeTab:', activeTab);
+    // console.log('Tab change requested:', tab);
+    // console.log('Current activeTab:', activeTab);
     
     if (tab === activeTab) return;
     
     setActiveTab(tab);
-    console.log('New activeTab set to:', tab);
+    // console.log('New activeTab set to:', tab);
     
     switch (tab) {
       case 'Overview':
@@ -366,7 +310,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
       actionTypeMap[process.actionType] = (actionTypeMap[process.actionType] || 0) + 1;
     });
     const result = Object.entries(actionTypeMap).map(([type, count]) => ({ type, count }));
-    console.log("Batch Action Types: ", result);
+    // console.log("Batch Action Types: ", result);
     return result;
   }
 
@@ -399,7 +343,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
 
   // Add sorting function for the data
   const sortData = (data: Transaction[]) => {
-    console.log('🔄 SORTING DATA:', { sortColumn, sortDirection });
+    // console.log('🔄 SORTING DATA:', { sortColumn, sortDirection });
     return [...data].sort((a, b) => {
       const aValue = a[sortColumn];
       const bValue = b[sortColumn];
@@ -472,15 +416,15 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('🔄 FETCHING DATA FOR BATCH TAB');
-      console.log('🔍 FETCHING DATA - Params:', {
-        page: options.page ?? page,
-        limit: options.limit ?? rowsPerPage,
-        dateRange: options.dateRange ?? selectedDateRange,
-        sortColumn: options.sortColumn ?? sortColumn,
-        sortDirection: options.sortDirection ?? sortDirection,
-        search: options.searchTerm ?? searchDate
-      });
+      // console.log('🔄 FETCHING DATA FOR BATCH TAB');
+      // console.log('🔍 FETCHING DATA - Params:', {
+      //   page: options.page ?? page,
+      //   limit: options.limit ?? rowsPerPage,
+      //   dateRange: options.dateRange ?? selectedDateRange,
+      //   sortColumn: options.sortColumn ?? sortColumn,
+      //   sortDirection: options.sortDirection ?? sortDirection,
+      //   search: options.searchTerm ?? searchDate
+      // });
 
       const queryParams = new URLSearchParams({
         page: String(page),
@@ -500,10 +444,9 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const result = await response.json();
-      console.log('📦 RECEIVED DATA:', result);
+      console.log('data here: ...', result);
 
       if (result.data?.data) {
-        console.log('✅ SETTING TRANSACTIONS:', result.data.data);
         const sortedData = sortData(result.data.data);
         setTransactions(sortedData);
         setTotalTransactions(result.data.totalRecords);
@@ -511,12 +454,12 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         setDataPerPage(result.data.dataPerPage);
         setCurrentPage(result.data.currentPage);
       } else {
-        console.log('❌ NO VALID TRANSACTIONS DATA');
+        // console.log('❌ NO VALID TRANSACTIONS DATA');
         setTransactions([]);
         setTotalTransactions(0);
       };
     } catch (err) {
-      console.error('❌ ERROR:', err);
+      // console.error('❌ ERROR:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
       setTransactions([]);
       setTotalTransactions(0);
@@ -561,9 +504,9 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
 
   // Add a debug effect to monitor state changes
   useEffect(() => {
-    console.log('Current transactions state:', transactions);
-    console.log('Current loading state:', isLoading);
-    console.log('Current error state:', error);
+    // console.log('Current transactions state:', transactions);
+    // console.log('Current loading state:', isLoading);
+    // console.log('Current error state:', error);
   }, [transactions, isLoading, error]);
 
   // Add process filter function
@@ -602,7 +545,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         } else {
           // Apply filters to the fetched data
           const filteredData = filterProcesses(data.data.data);
-          console.log('Fetched processes:', filteredData);
+          // console.log('Fetched processes:', filteredData);
           //setProcesses(filteredData)
           setProcesses(Array.isArray(filteredData) ? filteredData : [])
           setTotalProcesses(filteredData.length);
@@ -620,13 +563,13 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   }, [page, rowsPerPage, selectedDateRange, processSortColumn, processSortDirection, searchDate, activeTab]);
 
   // Add debug logging for render
-  console.log('🎨 RENDERING - Current state:', {
-    activeTab,
-    transactions: transactions.length,
-    isLoading,
-    error,
-    totalTransactions
-  });
+  // console.log('🎨 RENDERING - Current state:', {
+  //   activeTab,
+  //   transactions: transactions.length,
+  //   isLoading,
+  //   error,
+  //   totalTransactions
+  // });
 
   const handleViewDetails = (hrpsDate: string) => {
     setSelectedRow(formatDate(hrpsDate));
@@ -684,7 +627,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         column => !removeColumns.includes(column.trim().toLowerCase())
       );
 
-      console.log('Filtered header:', filteredHeader);
+      // console.log('Filtered header:', filteredHeader);
 
       const filteredRows = rows.slice(1).map(row => {
         const values = row.split(',');
