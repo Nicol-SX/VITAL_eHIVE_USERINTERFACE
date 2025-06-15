@@ -5,54 +5,10 @@
   import StatusPopup from './StatusPopup'; // adjust path as needed
   import config from '../common/config';
   import toLocalISOString from '../common/to-local-iso-string';
+  import { DateRangeOption, dateRangeOptions } from '../types/general';
+  import { Process } from '../types/Process';
+import { getStatusStyle, getStatusText } from '../utils/Status';
 
-  // Add new Process interface
-  interface ProcessAction {
-    id: number;
-    dataID: number;
-    status: number;
-    type: number;
-    comment: string;
-    insertDate: string;
-    effectiveDate: string;
-    updateDate: string;
-  }
-
-  // Update ProcessStatus enum
-  // enum ProcessStatus { ... }
-
-  interface Process {
-    dataID: number;
-    insertDate: string;
-    updateDate: string;
-    effectiveDate: string;
-    nric: string;
-    actionType: string;
-    resultData: string;
-    personnelArea: string;
-    processFlags: number;
-    personnelNumber: string;
-    status: string;
-    errorMessage: string;
-    name: string;
-    batchJobId: number
-    action: ProcessAction;
-  }
-
-  interface ProcessResponse {
-    message: string;
-    errorMessage: string;
-    data: {
-      currentPage: number;
-      totalPage: number;
-      dataPerPage: number;
-      data: Process[];
-    };
-  }
-
-
-  // Update base API URL to use the proxied endpoint
-  const HRPS_API_BASE_URL = '/hrps-api/HRP';  
 
   // Update StatusMonitoringProps interface
   interface StatusMonitoringProps {
@@ -60,61 +16,7 @@
     selectedBatchId?: string;
   }
 
-  // Update getStatusText function
-  const getStatusText = (status: string): string => {
-    return status;
-  };
-
-  // Update getStatusStyle function
-  const getStatusStyle = (status: string): { bgColor: string; textColor: string; dotColor: string } => {
-    switch (status.toUpperCase()) {
-      case 'COMPLETED':
-        return { bgColor: 'bg-green-100', textColor: 'text-green-800', dotColor: 'bg-green-600' };
-      case 'FAIL':
-        return { bgColor: 'bg-red-100', textColor: 'text-red-800', dotColor: 'bg-red-600' };
-      case 'PENDING':
-        return { bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', dotColor: 'bg-yellow-600' };
-      case 'IN_PROGRESS':
-        return { bgColor: 'bg-blue-100', textColor: 'text-blue-800', dotColor: 'bg-blue-600' };
-      case 'CANCELLED':
-        return { bgColor: 'bg-gray-100', textColor: 'text-gray-800', dotColor: 'bg-gray-600' };
-      case 'REVIEWED':
-        return { bgColor: 'bg-purple-100', textColor: 'text-purple-800', dotColor: 'bg-purple-600' };
-      case 'OTHERS':
-        return { bgColor: 'bg-gray-100', textColor: 'text-gray-800', dotColor: 'bg-gray-600' };
-      default:
-        return { bgColor: 'bg-gray-100', textColor: 'text-gray-800', dotColor: 'bg-gray-600' };
-    }
-  };
-
-  // Add helper function to convert date range to days
-  const getDateRangeDays = (dateRange: string): number => {
-    switch (dateRange) {
-      case 'All Time':
-        return 3650; // 10 years
-      case 'Last 7 days':
-        return 7;
-      case 'Last 30 days':
-        return 30;
-      case 'Last 3 months':
-        return 90;
-      case 'Last 6 months':
-        return 180;
-      case 'Last 1 year':
-        return 365;
-      case 'Last 2 years':
-        return 365 * 2;
-      case 'Last 3 years':
-        return 365 * 3;
-      case 'Last 5 years':
-        return 365 * 5;
-      case 'Last 10 years':
-        return 365 * 10;
-      default:
-        return 7;
-    }
-  };
-
+ 
   function formatDate(dateString: string) {
     if (!dateString) return '-';
     const d = new Date(dateString);
@@ -137,8 +39,6 @@
 
   // Add type for sortable columns
   type ProcessSortableColumn = 'batchJobId' |'personnelNumber' | 'insertDate' |'nric' |'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage';
-  type TabType = 'Overview' | 'Processes' | 'Batch';
-  type DateRangeOption = 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 6 months' | 'Last 1 year';
 
   // Add sorting function for process data
   const sortProcessData = (data: Process[], currentSortColumn: ProcessSortableColumn, currentSortDirection: 'asc' | 'desc') => {
@@ -172,8 +72,10 @@
     const [searchDate, setSearchDate] = useState('');
     const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false);
     const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('Last 7 days');
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
     const [sortColumn, setSortColumn] = useState<ProcessSortableColumn>('insertDate');
+const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
     const [selectedBatchId, setSelectedBatchId] = useState<string | null>(initialBatchId || null);
 
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -181,10 +83,10 @@
     const [totalTransactions, setTotalTransactions] = useState(0);
     const [error, setError] = useState<string | null>(null);
 
+    // Main Data Fetch
     const [processes, setProcesses] = useState<Process[]>([]);
+    // Total No. of Data(s)
     const [totalProcesses, setTotalProcesses] = useState(0);
-    const [processSortColumn, setProcessSortColumn] = useState<ProcessSortableColumn>('insertDate');
-    const [processSortDirection, setProcessSortDirection] = useState<'asc' | 'desc'>('desc');
 
     const totalRecords = activeTab === 'Processes' ? totalProcesses : totalTransactions;
     const totalPages = Math.ceil(totalRecords / rowsPerPage); 
@@ -194,18 +96,8 @@
     const [selectAll, setSelectAll] = useState(false);
     const allIds = activeTab === 'Processes' ? processes.map(p => p.dataID) : transactions.map(t => t.id);
 
-    const dateRangeOptions = [
-      'Last 7 days',
-      'Last 30 days',
-      'Last 3 months',
-      'Last 6 months',
-      'Last 1 year'
-    ] as const;
-
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedProcess, setSelectedProcess] = useState<Process | null>(null);
-    const [initialStatus, setInitialStatus] = useState<string | null>(null);
-    // const [processComments, setProcessComments] = useState<{[id: number]: { user: string; timestamp: string; comment: string }; }>({});
     // Add useEffect to get batchId from URL
     useEffect(() => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -215,6 +107,89 @@
         // console.log('🔍 Setting batchId from URL:', batchId);
       }
     }, []);
+
+    useEffect(() => {
+      const getDateRangeDays = (dateRange: string): number => {
+        switch (dateRange) {
+          case 'Last 7 days':
+            return 7;
+          case 'Last 30 days':
+            return 30;
+          case 'Last 3 months':
+            return 90;
+          case 'Last 6 months':
+            return 180;
+          case 'Last 1 year':
+            return 365;
+          default:
+            return 7;
+        }
+      };
+
+      const fetchData = async () => {
+        setIsLoading(true);
+        const dateSelected = getDateRangeDays(selectedDateRange).toString();
+
+        try {
+          const url = new URL(`${config.API_URL}/hrp/processes`);
+          url.searchParams.set('page', page.toString());
+          url.searchParams.set('limit', rowsPerPage.toString());
+          url.searchParams.set('dateRange', dateSelected);
+          url.searchParams.set('sortColumn', sortColumn);
+          url.searchParams.set('sortDirection', sortDirection);
+          if (selectedBatchId) url.searchParams.set('batchId', selectedBatchId);
+
+          const res = await fetch(url.toString());
+          const json = await res.json();
+
+          if (json.error || json.errorMessage) {
+            setError(json.error || json.errorMessage);
+            setProcesses([]);
+            setTotalProcesses(0);
+          } else {
+            setProcesses(json.data.data);
+            setTotalProcesses(json.data.totalRecords);
+            setError(null);
+          }
+        } catch (err) {
+          setError("Failed to fetch data");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      if (activeTab === 'Processes') fetchData();
+
+    }, [page,rowsPerPage,searchDate,sortColumn,sortDirection,selectedBatchId, activeTab,selectedDateRange
+    ]);
+
+
+function filterData<T extends { hrpsDateTime?: string; insertDate?: string; status: string; createdDate?: string }>(
+  list: T[],
+  search: string,
+  dateRange: DateRangeOption
+): T[] {
+  // console.log ("start filter data .....")
+  // const searchTerm = search.toLowerCase();
+  const days = getDateRangeDays(dateRange);
+  const startDate = new Date(new Date().setDate(new Date().getDate() - days));
+
+  console.log (`check SEARCH TERM date --> ${days}`)
+
+  return list.filter(item => {
+    const dateStr = item.insertDate || item.hrpsDateTime || item.createdDate || '';
+    const date = new Date(dateStr);
+    const matchesDate = date >= startDate;
+
+    const values = Object.values(item).map(val => String(val).toLowerCase());
+    // const matchesSearch = search === '' || values.some(val => val.includes(searchTerm));
+
+    
+    return matchesDate ;
+    // && matchesSearch;
+    
+  });
+}
 
     // Navigation handler
     const handleTabChange = (tab: 'Overview' | 'Batch' | 'Processes') => {
@@ -233,48 +208,20 @@
       }
     };
 
-    // Fetch processes for a specific batch
-    const fetchProcessesByBatchId = async (batchId: string) => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${config.API_URL}/hrp/processes?batchId=${batchId}&page=${page}&limit=${rowsPerPage}`);
-        const data = await response.json();
-
-        if (data.error) {
-          setError(data.error);
-          setProcesses([]);
-          setTotalProcesses(0);
-        } else {
-          setProcesses(data.data.data);
-          setTotalProcesses(data.data.total);
-          // Set error message if provided
-          if (data.data.error) {
-            setError(data.data.error);
-          } else {
-            setError(null);
-          }
-        }
-      } catch (error) {
-        setError('Failed to fetch process data');
-        setProcesses([]);
-        setTotalProcesses(0);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     // Add a new function to fetch all processes
     const fetchAllProcesses = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}`);
+        // ?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}
+        const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}`);
         const data = await response.json();
+        console.log("data here --->", data)
 
         if (data.error) {
           setError(data.error);
         } else {
           setProcesses(data.data.data);
-          setTotalProcesses(data.data.total);
+          setTotalProcesses(data.data.totalRecords);
         }
       } catch (error) {
         setError('Failed to fetch process data');
@@ -283,13 +230,6 @@
       }
     };
 
-    useEffect(() => {
-      if (selectedBatchId) {
-        fetchProcessesByBatchId(selectedBatchId);
-      } else if (activeTab === 'Processes') {
-        fetchAllProcesses();
-      }
-    }, [ page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, selectedBatchId, activeTab, processSortColumn, processSortDirection ]);
 
     // Add filter handlers
     const handleSearch = (searchTerm: string) => {
@@ -299,29 +239,9 @@
 
     const handleDateRangeChange = (range: DateRangeOption) => {
       setSelectedDateRange(range);
+      setShowDateRangeDropdown(false);
+      
       setPage(0); // Reset to first page when changing date range
-    };
-
-    // Add batch filter function
-    const filterTransactions = (transactions: Transaction[]) => {
-      return transactions.filter(transaction => {
-        // Search filter
-        const searchTerm = searchDate.toLowerCase();
-        const matchesSearch = searchTerm === '' || 
-          transaction.hrpsDateTime.toLowerCase().includes(searchTerm) ||
-          transaction.pickupDate.toLowerCase().includes(searchTerm) ||
-          transaction.status.toLowerCase().includes(searchTerm) ||
-          transaction.createdDate.toLowerCase().includes(searchTerm);
-
-        // Date range filter
-        const transactionDate = new Date(transaction.hrpsDateTime);
-        const now = new Date();
-        const days = getDateRangeDays(selectedDateRange);
-        const startDate = new Date(now.setDate(now.getDate() - days));
-        const matchesDateRange = transactionDate >= startDate;
-
-        return matchesSearch && matchesDateRange;
-      });
     };
 
     //Checkbox handlers
@@ -348,86 +268,6 @@
         return updated;
       });
     };
-
-
-    // Add process filter function
-    const filterProcesses = (processes: Process[]) => {
-      return processes.filter(process => {
-        // Search filter
-        const searchTerm = searchDate.toLowerCase();
-        const matchesSearch = searchTerm === '' || 
-          process.insertDate.toLowerCase().includes(searchTerm) ||
-          process.nric.toLowerCase().includes(searchTerm) ||
-          process.name.toLowerCase().includes(searchTerm) ||
-          process.actionType.toLowerCase().includes(searchTerm) ||
-          process.personnelArea.toLowerCase().includes(searchTerm) ||
-          process.status.toLowerCase().includes(searchTerm) ||
-          process.errorMessage.toLowerCase().includes(searchTerm);
-
-        // Date range filter
-        const processDate = new Date(process.insertDate);
-        const now = new Date();
-        const days = getDateRangeDays(selectedDateRange);
-        const startDate = new Date(now.setDate(now.getDate() - days));
-        const matchesDateRange = processDate >= startDate;
-
-        return matchesSearch && matchesDateRange;
-      });
-    };
-
-    // Update useEffect to handle filtering
-    useEffect(() => {
-      const fetchData = async () => {
-        try {
-          setIsLoading(true);
-          if (activeTab === 'Batch') {
-            const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${sortColumn}&sortDirection=${sortDirection}`);
-            const data = await response.json();
-
-            if (data.error) {
-              setError(data.error);
-            } else {
-              // Apply filters to the fetched data
-              const filteredData = filterTransactions(data.transactions.data);
-              setTransactions(filteredData);
-              setTotalTransactions(filteredData.length);
-            }
-          } else if (activeTab === 'Processes') {
-            const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}`);
-            const data = await response.json();
-
-            if (data.errorMessage) {
-              setError(data.errorMessage);
-            } else {
-              // Apply filters to the fetched data
-              const filteredData = filterProcesses(data.data.data);
-              setProcesses(filteredData);
-              setTotalProcesses(filteredData.length);
-              // console.log(filteredData, filteredData.length);
-
-            }
-          }
-        } catch (error) {
-          setError('Failed to fetch data');
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      fetchData();
-    }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, processSortColumn, processSortDirection, searchDate, activeTab]);
-
-    // Update the search input handler
-    const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      handleSearch(e.target.value);
-    };
-
-    // Update the date range handler
-    const handleDateRangeSelect = (range: string) => {
-      handleDateRangeChange(range as DateRangeOption);
-      setShowDateRangeDropdown(false);
-    };
-
 
     // Download CSV handler
     function downloadCSV(processes: Process[], filename = 'process_table.csv') {
@@ -557,53 +397,6 @@
         setSortDirection('desc');
       }
     };
-
-    // Update useEffect to include sorting
-    useEffect(() => {
-      const fetchProcessData = async () => {
-        try {
-          setIsLoading(true);
-          const queryParams = new URLSearchParams({
-            page: page.toString(),
-            limit: rowsPerPage.toString(),
-            dateRange: selectedDateRange,
-            sortColumn,
-            sortDirection,
-            ...(selectedBatchId && { batchId: selectedBatchId })
-          });
-
-          // console.log('🔍 Fetching processes with params:', Object.fromEntries(queryParams.entries()));
-
-          const response = await fetch(`${config.API_URL}/hrp/processes?${queryParams.toString()}`);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          const data = await response.json();
-
-          if (data.error) {
-            setError(data.error);
-          } else {
-            // console.log('📦 Received process data:', {
-            //   total: data.data.total,
-            //   count: data.data.data.length,
-            //   batchId: selectedBatchId
-            // });
-            const sortedData = sortProcessData(data.data.data, sortColumn, sortDirection);
-            setProcesses(sortedData);
-            setTotalProcesses(data.data.total);
-          }
-        } catch (error) {
-          // console.error('❌ Error fetching process data:', error);
-          setError('Failed to fetch process data');
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      if (activeTab === 'Processes') {
-        // fetchProcessData();
-      }
-    }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, activeTab, selectedBatchId]);
 
     // Add a clear filter button when batchId is selected
     const handleClearBatchFilter = () => {
@@ -782,8 +575,7 @@
                         <button
                           key={option}
                           onClick={() => {
-                            setSelectedDateRange(option);
-                            setShowDateRangeDropdown(false);
+                            handleDateRangeChange(option);
                           }}
                           className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
                             selectedDateRange === option ? 'bg-gray-50 text-[#1a4f82]' : 'text-gray-700'

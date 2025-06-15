@@ -4,92 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Tooltip, Button } from "@material-tailwind/react";
 import { useRouter } from 'next/navigation';
 import config from '../common/config';
-
-// Update interfaces with proper type definitions
-interface ProcessAction {
-  id: number;
-  dataID: number;
-  status: number;
-  type: number;
-  comment: string;
-  insertDate: string;
-  effectiveDate: string;
-  updateDate: string;
-}
-
-interface Process {
-  dataID: number;
-  insertDate: string;
-  updateDate: string;
-  effectiveDate: string;
-  nric: string;
-  actionType: string;
-  resultData: string;
-  personnelArea: string;
-  processFlags: number;
-  personnelNumber: string;
-  status: string;
-  errorMessage: string;
-  name: string;
-  batchId: string;
-  action: ProcessAction;
-}
-
-interface Batch {
-  batchJobId: number;
-  hrpsDateTime: string;
-  pickupDate: string;
-  totalCSVFiles: number;
-  status: string;
-  createdDate: string;
-  lastUpdatedDate: string;
-}
-
-interface ActionType {
-  type: string;
-  count: number;
-}
-
-interface BatchProps {
-  defaultTab?: 'Overview' | 'Batch' | 'Processes';
-}
-
-// Add proper type for event handlers
-type TabType = 'Overview' | 'Batch' | 'Processes';
-
-const getDateRangeDays = (dateRange: string): number => {
-  switch (dateRange) {
-    // case 'All Time':
-    //   return 3650; // 10 years
-    case 'Last 7 days':
-      return 7;
-    case 'Last 30 days':
-      return 30;
-    case 'Last 3 months':
-      return 90;
-    case 'Last 6 months':
-      return 180;
-    case 'Last 1 year':
-      return 365;
-    default:
-      return 7;
-  }
-};
-
-interface Transaction {
-  batchJobId: number;
-  hrpsDateTime: string;
-  pickupDate: string;
-  totalCSVFiles: number;
-  status: string;
-  createdDate: string;
-  lastUpdatedDate: string;
-}
-
-
-
-// Add type for sortable columns
-type SortableColumn = 'hrpsDateTime' | 'pickupDate' | 'totalCSVFiles' | 'status' | 'batchJobId';
+import { ActionType, Batch, BatchProps, Process, SortableColumn, TabType, Transaction } from '../types/batch';
+import { getDateRangeDays } from '../utils/Date';
 
 // Add a date formatting function
 function formatDate(dateString: string | null | undefined) {
@@ -119,15 +35,15 @@ interface FetchBatchOptions {
   searchTerm?: string;
 }
 
-export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
+export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('Batch');
 
   // const [showActionTypes, setShowActionTypes] = useState(false);
-  const [showActionTypesTooltip, setShowActionTypesTooltip] = useState(false);
+  // const [showActionTypesTooltip, setShowActionTypesTooltip] = useState(false);
 
   const [selectedRow, setSelectedRow] = useState<string | null>(null);
-  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+  // const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -135,8 +51,6 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [searchDate, setSearchDate] = useState('');
   const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false);
   const [selectedDateRange, setSelectedDateRange] = useState<typeof dateRangeOptions[number]>('Last 7 days');
-  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
-  const [selectedTables, setSelectedTables] = useState<string[]>([]);
   const [sortColumn, setSortColumn] = useState<SortableColumn>('hrpsDateTime');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
@@ -147,7 +61,7 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [isActionTypesLoading, setIsActionTypesLoading] = useState(true);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [totalPage, setTotalPage] = useState(1);
-  const [dataPerPage, setDataPerPage] = useState(0);
+
   const [currentPage, setCurrentPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -156,29 +70,19 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
   const [processSortColumn, setProcessSortColumn] = useState<'processDateTime'>('processDateTime');
   const [processSortDirection, setProcessSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const [openStatusDropdown, setOpenStatusDropdown] = useState<number | null>(null);
   const [getActionTypes, setGetActionTypes] = useState<boolean>(false);
   //const [actionTypes, setActionTypes] = useState<string[]>([]);
   const [batchActionType, setBatchActionType] = useState<ActionType[]>([]);
 
-  const [appointments, setAppointments] = useState<number>(0);
-  const [posting, setPosting] = useState<number>(0);
-  const [transfer, setTransfer] = useState<number>(0);
-  const [other, setOther] = useState<number>(0);
-
-  
-  
   const statusOptions = ['Success', 'Failed', 'Pending'] as const;
   type StatusOption = typeof statusOptions[number];
 
   const dateRangeOptions = [
-    // 'All Time',
     'Last 7 days',
     'Last 30 days',
     'Last 3 months',
     'Last 6 months',
     'Last 1 year',
-
   ] as const;
   type DateRangeOption = typeof dateRangeOptions[number];
 
@@ -187,28 +91,8 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     { id: 'batch', label: 'Batch Table' }
   ] as const;
 
-  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [selectedProcessId, setSelectedProcessId] = useState<number | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<StatusOption | null>(null);
-  const [comments, setComments] = useState('');
-  const [processComments, setProcessComments] = useState<Record<number, { status: string; comments: string }>>({});
-
-
-  const [batchProcesses, setBatchProcesses] = useState<Process[]>([]);
-  const [isBatchProcessesLoading, setIsBatchProcessesLoading] = useState(false);
-
-  const [batchDate, setBatchDate] = useState<string | null>(null);
-
-  // Add debug logging for initial render
-  // useEffect(() => {
-  //   // console.log('Initial render - defaultTab:', defaultTab);
-  //   // console.log('Initial render - activeTab:', activeTab);
-  // }, [defaultTab, activeTab]);
-
   // Single declaration of handlers with proper types
   const handleTabChange = (tab: TabType): void => {
-    // console.log('Tab change requested:', tab);
-    // console.log('Current activeTab:', activeTab);
     
     if (tab === activeTab) return;
     
@@ -229,34 +113,6 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         break;
     }
   };
-
-  function handleUpdateSelectedRow(batch: Batch){
-    setSelectedRow(formatDate(batch.hrpsDateTime));
-    setSelectedBatchId(batch.batchJobId)
-    setShowActionTypes(true);
-  }
-  
-  function handleClearSelectedRow(){
-    setShowActionTypes(false);
-    setBatchActionType([]);
-    setGetActionTypes(false);
-    setSelectedRow(null);
-    setSelectedBatchId(null);
-  }
-
-  function handleUpdateActionType(batch: Batch){
-    setSelectedRow(formatDate(batch.hrpsDateTime));
-    setSelectedBatchId(batch.batchJobId)
-    setShowActionTypesTooltip(true);
-  }
-  
-  function handleClearActionType(){
-    setShowActionTypesTooltip(false);
-    setBatchActionType([]);
-    setGetActionTypes(false);
-    setSelectedRow(null);
-    setSelectedBatchId(null);
-  }
 
    // Update fetchProcessData to load saved changes after fetching
   const fetchProcessTypes = async (hrpsDate: string) => {
@@ -451,7 +307,6 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
         setTransactions(sortedData);
         setTotalTransactions(result.data.totalRecords);
         setTotalPage(result.data.totalPage);
-        setDataPerPage(result.data.dataPerPage);
         setCurrentPage(result.data.currentPage);
       } else {
         // console.log('❌ NO VALID TRANSACTIONS DATA');
@@ -562,18 +417,9 @@ export default function Batch({ defaultTab = 'Batch' }: BatchProps) {
     }
   }, [page, rowsPerPage, selectedDateRange, processSortColumn, processSortDirection, searchDate, activeTab]);
 
-  // Add debug logging for render
-  // console.log('🎨 RENDERING - Current state:', {
-  //   activeTab,
-  //   transactions: transactions.length,
-  //   isLoading,
-  //   error,
-  //   totalTransactions
-  // });
-
   const handleViewDetails = (hrpsDate: string) => {
     setSelectedRow(formatDate(hrpsDate));
-    setShowActionTypes(true);
+    // setShowActionTypes(true);
   };
   
 
