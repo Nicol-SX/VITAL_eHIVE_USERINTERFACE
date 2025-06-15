@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Tooltip, Button } from "@material-tailwind/react";
 import { useRouter } from 'next/navigation';
 import config from '../common/config';
-import { ActionType, Batch, BatchProps, Process, SortableColumn, TabType, Transaction } from '../types/batch';
+import { ActionType, Batch, BatchProps, SortableColumn, TabType, Transaction } from '../types/batch';
 import { getDateRangeDays } from '../utils/Date';
+import { Process } from '../types/Process';
 
 // Add a date formatting function
 function formatDate(dateString: string | null | undefined) {
@@ -155,9 +156,8 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
 
   useEffect(() => {
     if (getActionTypes) {
-        setBatchActionType(handleActionTypes(processes));
+       setBatchActionType(handleActionTypes(processes));
     }
-    
   }, [getActionTypes]);
 
   const handleActionTypes = (processes: Process[]) => {
@@ -272,15 +272,6 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
     try {
       setIsLoading(true);
       setError(null);
-      // console.log('🔄 FETCHING DATA FOR BATCH TAB');
-      // console.log('🔍 FETCHING DATA - Params:', {
-      //   page: options.page ?? page,
-      //   limit: options.limit ?? rowsPerPage,
-      //   dateRange: options.dateRange ?? selectedDateRange,
-      //   sortColumn: options.sortColumn ?? sortColumn,
-      //   sortDirection: options.sortDirection ?? sortDirection,
-      //   search: options.searchTerm ?? searchDate
-      // });
 
       const queryParams = new URLSearchParams({
         page: String(page),
