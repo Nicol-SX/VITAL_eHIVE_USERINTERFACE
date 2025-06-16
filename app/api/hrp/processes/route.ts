@@ -34,6 +34,7 @@ interface ApiResponse {
   data: {
     currentPage: number;
     totalPage: number;
+    totalRecords: number;
     dataPerPage: number;
     data: ProcessData[];
   }
@@ -176,33 +177,33 @@ export async function GET(request: NextRequest) {
       throw new Error(apiResponse.errorMessage || 'API returned an unsuccessful response');
     }
 
-    // Filter data by batchId if provided
-    let filteredData = apiResponse.data.data;
-    if (batchId) {
-      console.log('🔍 Before filtering - Total items:', filteredData.length);
+    // // Filter data by batchId if provided
+    // let filteredData = apiResponse.data.data;
+    // if (batchId) {
+    //   console.log('🔍 Before filtering - Total items:', filteredData.length);
       
-      filteredData = filteredData.filter((item: ProcessData) => {
-        const itemBatchId = item.batchJobId?.toString();
-        return itemBatchId === batchId;
-      });
+    //   filteredData = filteredData.filter((item: ProcessData) => {
+    //     const itemBatchId = item.batchJobId?.toString();
+    //     return itemBatchId === batchId;
+    //   });
       
-      console.log('📊 After filtering - Total items:', filteredData.length);
+    //   console.log('📊 After filtering - Total items:', filteredData.length);
 
-      if (filteredData.length === 0) {
-        return NextResponse.json({
-          data: {
-            data: [],
-            total: 0,
-            error: `No records found for Batch ID: ${batchId}`
-          }
-        });
-      }
-    }
+    //   if (filteredData.length === 0) {
+    //     return NextResponse.json({
+    //       data: {
+    //         data: [],
+    //         total: 0,
+    //         error: `No records found for Batch ID: ${batchId}`
+    //       }
+    //     });
+    //   }
+    // }
 
     // Transform the response to match the expected format
     const transformedData = {
       data: {
-        data: filteredData.map((item: ProcessData) => ({
+        data: apiResponse.data.data.map((item: ProcessData) => ({
           dataID: item.dataID,
           insertDate: item.insertDate,
           updateDate: item.updateDate,
@@ -219,9 +220,10 @@ export async function GET(request: NextRequest) {
           action: item.action,
           batchId: item.batchJobId ?? null,
         })),
-        total: apiResponse.data.totalPage * apiResponse.data.dataPerPage // Use total records from API
+        total: apiResponse.data.totalRecords // ✅ Use actual totalRecords from backend
       }
     };
+
 
     console.log('Transformed data:', {
       totalRecords: transformedData.data.total,
@@ -256,24 +258,3 @@ function mapStatus(hrpsStatus: string): 'Success' | 'Fail' | 'Pending' {
   return statusMap[hrpsStatus] || 'Pending';
 }
 
-// Helper function to format date to yyyy/mm/dd hh:mm:ss
-function formatDateTime(dateStr: string): string {
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) {
-      return '';
-    }
-    
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    
-    return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
-  } catch (error) {
-    console.error('Error formatting date:', error);
-    return '';
-  }
-} 

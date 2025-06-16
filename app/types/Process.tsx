@@ -1,3 +1,10 @@
+// Update StatusMonitoringProps interface
+export interface StatusMonitoringProps {
+    defaultTab: 'Overview' | 'Batch' | 'Processes';
+    selectedBatchId?: string;
+  }
+
+
 export interface ProcessAction {
     id: number;
     dataID: number;
