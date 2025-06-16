@@ -6,18 +6,11 @@
   import config from '../common/config';
   import toLocalISOString from '../common/to-local-iso-string';
   import { DateRangeOption, dateRangeOptions } from '../types/general';
-  import { Process } from '../types/Process';
-import { getStatusStyle, getStatusText } from '../utils/Status';
-import { getDateRangeDays } from '../utils/Date';
+  import { Process, StatusMonitoringProps, Transaction } from '../types/Process';
+  import { getStatusStyle, getStatusText } from '../utils/Status';
+  import { getDateRangeDays } from '../utils/Date';
 
 
-  // Update StatusMonitoringProps interface
-  interface StatusMonitoringProps {
-    defaultTab: 'Overview' | 'Batch' | 'Processes';
-    selectedBatchId?: string;
-  }
-
- 
   function formatDate(dateString: string) {
     if (!dateString) return '-';
     const d = new Date(dateString);
@@ -26,43 +19,32 @@ import { getDateRangeDays } from '../utils/Date';
     // Prepend an apostrophe so Excel won’t re‐parse it as a date:
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
-  // Update Transaction interface
-  interface Transaction {
-    id: number;
-    batchJobId: number;
-    hrpsDateTime: string;
-    pickupDate: string;
-    xmlFileCount: number;
-    status: 'Success' | 'Pending' | 'Fail';
-    createdDate: string;
-    lastUpdatedDate: string;
-  }
 
   // Add type for sortable columns
   type ProcessSortableColumn = 'batchJobId' |'personnelNumber' | 'insertDate' |'nric' |'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage';
 
   // Add sorting function for process data
-  const sortProcessData = (data: Process[], currentSortColumn: ProcessSortableColumn, currentSortDirection: 'asc' | 'desc') => {
-    // console.log('🔄 SORTING PROCESS DATA:', { currentSortColumn, currentSortDirection });
+  const sortProcessData = (
+    data: Process[],
+    column: 'batchJobId' | 'insertDate' | 'nric' | 'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage',
+    direction: 'asc' | 'desc'
+  ): Process[] => {
     return [...data].sort((a, b) => {
-      const aValue = a[currentSortColumn];
-      const bValue = b[currentSortColumn]; 
+      const aValue = a[column];
+      const bValue = b[column];
 
-      // Handle date fields
-      if (currentSortColumn === 'insertDate') {
+      if (column === 'insertDate') {
         const dateA = new Date(aValue || '').getTime();
         const dateB = new Date(bValue || '').getTime();
-        return currentSortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+        return direction === 'asc' ? dateA - dateB : dateB - dateA;
       }
 
-      // Handle string fields
       const strA = String(aValue || '').toLowerCase();
       const strB = String(bValue || '').toLowerCase();
-      return currentSortDirection === 'asc' 
-        ? strA.localeCompare(strB)
-        : strB.localeCompare(strA);
+      return direction === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
     });
   };
+
 
   export default function StatusMonitoring({ defaultTab, selectedBatchId: initialBatchId }: StatusMonitoringProps) {
     const router = useRouter();
@@ -75,11 +57,11 @@ import { getDateRangeDays } from '../utils/Date';
     const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('Last 7 days');
 
     const [sortColumn, setSortColumn] = useState<ProcessSortableColumn>('insertDate');
-const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-    const [selectedBatchId, setSelectedBatchId] = useState<string | null>(initialBatchId || null);
+    const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [transactions, setTransactions] = useState< Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [totalTransactions, setTotalTransactions] = useState(0);
     const [error, setError] = useState<string | null>(null);
@@ -99,42 +81,39 @@ const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedProcess, setSelectedProcess] = useState<Process | null>(null);
+    
+     
+    const getPageNumbers = () => {
+      const totalPagesArray = [];
+      const maxVisiblePages = 5;
+      const half = Math.floor(maxVisiblePages / 2);
+
+      let start = Math.max(0, page - half);
+      let end = start + maxVisiblePages;
+
+      if (end > totalPages) {
+        end = totalPages;
+        start = Math.max(0, end - maxVisiblePages);
+      }
+
+      for (let i = start; i < end; i++) {
+        totalPagesArray.push(i);
+      }
+
+      return totalPagesArray;
+    };
+   
     // Add useEffect to get batchId from URL
     useEffect(() => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const batchId = urlParams.get('batchId');
-      if (batchId) {
-        setSelectedBatchId(batchId);
-        // console.log('🔍 Setting batchId from URL:', batchId);
-      }
-    }, []);
-
-    useEffect(() => {
-      const getDateRangeDays = (dateRange: string): number => {
-        switch (dateRange) {
-          case 'Last 7 days':
-            return 7;
-          case 'Last 30 days':
-            return 30;
-          case 'Last 3 months':
-            return 90;
-          case 'Last 6 months':
-            return 180;
-          case 'Last 1 year':
-            return 365;
-          default:
-            return 7;
-        }
-      };
-
       const fetchData = async () => {
         setIsLoading(true);
         const dateSelected = getDateRangeDays(selectedDateRange).toString();
 
         try {
           const url = new URL(`${config.API_URL}/hrp/processes`);
-          url.searchParams.set('page', page.toString());
+          url.searchParams.set('page', (page + 1).toString());
           url.searchParams.set('limit', rowsPerPage.toString());
+          url.searchParams.set('search', searchDate);
           url.searchParams.set('dateRange', dateSelected);
           url.searchParams.set('sortColumn', sortColumn);
           url.searchParams.set('sortDirection', sortDirection);
@@ -148,49 +127,22 @@ const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
             setProcesses([]);
             setTotalProcesses(0);
           } else {
-            setProcesses(json.data.data);
+            const sorted = sortProcessData(json.data.data, sortColumn, sortDirection); // 👈 added
+            setProcesses(sorted); 
             setTotalProcesses(json.data.totalRecords);
             setError(null);
           }
-        } catch (err) {
-          setError("Failed to fetch data");
-        } finally {
-          setIsLoading(false);
-        }
-      };
+          } catch (err) {
+            setError("Failed to fetch data");
+          } finally {
+            setIsLoading(false);
+          }
+        };
 
-      if (activeTab === 'Processes') fetchData();
-
-    }, [page,rowsPerPage,searchDate,sortColumn,sortDirection,selectedBatchId, activeTab,selectedDateRange
-    ]);
-
-
-function filterData<T extends { hrpsDateTime?: string; insertDate?: string; status: string; createdDate?: string }>(
-  list: T[],
-  search: string,
-  dateRange: DateRangeOption
-): T[] {
-  // console.log ("start filter data .....")
-  // const searchTerm = search.toLowerCase();
-  const days = getDateRangeDays(dateRange);
-  const startDate = new Date(new Date().setDate(new Date().getDate() - days));
-
-  console.log (`check SEARCH TERM date --> ${days}`)
-
-  return list.filter(item => {
-    const dateStr = item.insertDate || item.hrpsDateTime || item.createdDate || '';
-    const date = new Date(dateStr);
-    const matchesDate = date >= startDate;
-
-    const values = Object.values(item).map(val => String(val).toLowerCase());
-    // const matchesSearch = search === '' || values.some(val => val.includes(searchTerm));
-
-    
-    return matchesDate ;
-    // && matchesSearch;
-    
-  });
-}
+      if (activeTab === 'Processes') {
+        fetchData();
+      }
+    }, [page, rowsPerPage, searchDate, sortColumn, sortDirection, selectedBatchId, activeTab, selectedDateRange]);
 
     // Navigation handler
     const handleTabChange = (tab: 'Overview' | 'Batch' | 'Processes') => {
@@ -208,29 +160,6 @@ function filterData<T extends { hrpsDateTime?: string; insertDate?: string; stat
           break;
       }
     };
-
-    // Add a new function to fetch all processes
-    const fetchAllProcesses = async () => {
-      try {
-        setIsLoading(true);
-        // ?page=${page}&limit=${rowsPerPage}&dateRange=${selectedDateRange}&sortColumn=${processSortColumn}&sortDirection=${processSortDirection}
-        const response = await fetch(`${config.API_URL}/hrp/processes?page=${page}&limit=${rowsPerPage}`);
-        const data = await response.json();
-        console.log("data here --->", data)
-
-        if (data.error) {
-          setError(data.error);
-        } else {
-          setProcesses(data.data.data);
-          setTotalProcesses(data.data.totalRecords);
-        }
-      } catch (error) {
-        setError('Failed to fetch process data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
 
     // Add filter handlers
     const handleSearch = (searchTerm: string) => {
@@ -800,7 +729,7 @@ function filterData<T extends { hrpsDateTime?: string; insertDate?: string; stat
                           </td>
                         </tr>
                       ) : processes && processes.length > 0 ? (
-                        sortProcessData(processes, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage ).map((process) => (
+                        processes.map((process) => (
                           <tr key={process.dataID} className={`border-b border-gray-200 transition-colors ${selectedRows.has(process.dataID) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>                            
                             <td className="w-[2%] px-4 py-2">
                               {process.status === 'Fail' && (
@@ -887,7 +816,7 @@ function filterData<T extends { hrpsDateTime?: string; insertDate?: string; stat
                   }}
                   className="border-0 bg-transparent text-sm text-gray-700 focus:ring-0 cursor-pointer"
                 >
-                  {[2, 50, 100].map((size) => (
+                  {[50, 100].map((size) => (
                     <option key={size} value={size}>
                       {size}
                     </option>
@@ -904,6 +833,18 @@ function filterData<T extends { hrpsDateTime?: string; insertDate?: string; stat
                 </span>
                 <nav className="flex items-center space-x-1">
                   <button
+                    onClick={() => setPage(0)}
+                    disabled={page === 0}
+                    className={`px-2 py-1 text-sm rounded-md ${
+                      page === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    aria-label="First page"
+                  >
+                    &lt;&lt;
+                  </button>
+
+                  {/* Previous page */}
+                  <button
                     onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
                     disabled={page === 0}
                     className={`px-2 py-1 text-sm rounded-md ${
@@ -914,37 +855,38 @@ function filterData<T extends { hrpsDateTime?: string; insertDate?: string; stat
                     &lt;
                   </button>
 
-                  {Array.from({ length: totalPages }).map((_, idx) => (
+                  {/* Dynamic numbered buttons */}
+                  {getPageNumbers().map((pageNum) => (
                     <button
-                      key={idx}
-                      onClick={() => setPage(idx)}
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
                       className={`px-2 py-1 text-sm rounded-md ${
-                        page === idx ? 'bg-[#1a4f82] text-white' : 'text-gray-700 hover:bg-gray-100'
+                        page === pageNum ? 'bg-[#1a4f82] text-white' : 'text-gray-700 hover:bg-gray-100'
                       }`}
-                      aria-label={`Page ${idx + 1}`}
+                      aria-label={`Page ${pageNum + 1}`}
                     >
-                      {idx + 1}
+                      {pageNum + 1}
                     </button>
                   ))}
 
+                  {/* Next page */}
                   <button
-                    onClick={() =>
-                      setPage((prev) => Math.min(prev + 1, totalPages - 1))
-                    }
+                    onClick={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
                     disabled={page + 1 >= totalPages}
                     className={`px-2 py-1 text-sm rounded-md ${
-                      page + 1 >= totalPages ? 'text-gray-300 cursor-not-allowed': 'text-gray-700 hover:bg-gray-100'
+                      page + 1 >= totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
                     }`}
                     aria-label="Next page"
                   >
                     &gt;
                   </button>
 
+                  {/* Last page */}
                   <button
                     onClick={() => setPage(totalPages - 1)}
                     disabled={page === totalPages - 1}
                     className={`px-2 py-1 text-sm rounded-md ${
-                      page === totalPages - 1 ? 'text-gray-300 cursor-not-allowed': 'text-gray-700 hover:bg-gray-100'
+                      page === totalPages - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
                     }`}
                     aria-label="Last page"
                   >
@@ -956,7 +898,7 @@ function filterData<T extends { hrpsDateTime?: string; insertDate?: string; stat
           </div>
         </div>
 
-        {isStatusModalOpen && selectedProcess !== null && (
+        {isStatusModalOpen && (
           <StatusPopup
             isOpen={true}
             onClose={() => {

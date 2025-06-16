@@ -47,7 +47,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
   // const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   const [searchDate, setSearchDate] = useState('');
   const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false);
@@ -279,12 +279,15 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
           dateRange: selectedDateRange,
           sortColumn,
           sortDirection,
+          searchTerm:searchDate
         });
 
       // Add search term if provided
       if (options.searchTerm) {
         queryParams.append('search', options.searchTerm);
       }
+
+      queryParams.set('page', String((options.page ?? page) + 1));
 
       const response = await fetch(`${config.API_URL}/hrp/batches?${queryParams.toString()}`)
       if (!response.ok) {
@@ -809,7 +812,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
                     </td>
                   </tr>
                 ) : filteredTransactions && filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((batch) => (
+                  filteredTransactions.map((batch) => ( 
                     <tr key={batch.batchJobId} 
                     className="border-b border-gray-200 hover:bg-gray-50 transition-colors"> 
                     
@@ -936,6 +939,17 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
                 Showing {startItem}-{endItem} of {totalTransactions}
               </span>
               <nav className="flex items-center space-x-1">
+                <button
+                  onClick={() => setPage(0)}
+                  disabled={page === 0}
+                  className={`px-2 py-1 text-sm rounded-md ${
+                    page === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  aria-label="First page"
+                >
+                  &lt;&lt;
+                </button>
+                
                 <button
                   onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
                   disabled={page === 0}
