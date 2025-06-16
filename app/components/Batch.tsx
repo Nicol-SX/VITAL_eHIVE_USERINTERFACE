@@ -349,7 +349,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
     
 
   // Update the filtered transactions to use both filter and sort
-  const filteredTransactions = sortData(filterTransactions(transactions));
+  const filteredTransactions = transactions;
 
   // Add a debug effect to monitor state changes
   useEffect(() => {
@@ -607,7 +607,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
                   type="text"
                   id="search-input"
                   name="search"
-                  value={searchDate}
+                  value={searchTerm}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   placeholder={`Search ${activeTab.toLowerCase()}...`}
                   className="border rounded px-3 py-1 text-sm w-full sm:w-64 focus:outline-none focus:border-[#1a4f82] pr-8"
