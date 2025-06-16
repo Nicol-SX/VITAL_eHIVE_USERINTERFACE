@@ -33,3 +33,16 @@ export interface ProcessAction {
     batchJobId: number
     action: ProcessAction;
   }
+
+    
+  // Update Transaction interface
+  export interface Transaction {
+    id: number;
+    batchJobId: number;
+    hrpsDateTime: string;
+    pickupDate: string;
+    xmlFileCount: number;
+    status: 'Success' | 'Pending' | 'Fail';
+    createdDate: string;
+    lastUpdatedDate: string;
+  }
