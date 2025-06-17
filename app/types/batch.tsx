@@ -1,5 +1,7 @@
 export type TabType = 'Overview' | 'Batch' | 'Processes';
 
+export type BatchSortableColumn = 'batchJobId' | 'hrpsDateTime' | 'pickupDate' | 'totalCSVFiles' | 'status';
+
 // export interface ProcessAction {
 //   id: number;
 //   dataID: number;
@@ -28,6 +30,16 @@ export type TabType = 'Overview' | 'Batch' | 'Processes';
 //   batchId: string;
 //   action: ProcessAction;
 // }
+
+export interface FetchBatchOptions {
+  page?: number;
+  limit?: number;
+  dateRange?: string;
+  sortColumn?: string;
+  sortDirection?: 'asc' | 'desc';
+  searchTerm?: string;
+}
+
 
 export interface Batch {
   batchJobId: number;

@@ -220,9 +220,10 @@ export async function GET(request: NextRequest) {
           action: item.action,
           batchId: item.batchJobId ?? null,
         })),
-        total: apiResponse.data.totalRecords // ✅ Use actual totalRecords from backend
+        total: apiResponse.data.totalRecords
       }
     };
+
 
 
     console.log('Transformed data:', {

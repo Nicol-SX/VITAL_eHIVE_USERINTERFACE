@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Tooltip, Button } from "@material-tailwind/react";
 import { useRouter } from 'next/navigation';
 import config from '../common/config';
-import { ActionType, Batch, BatchProps, SortableColumn, TabType, Transaction } from '../types/batch';
+import { ActionType, Batch, BatchProps, BatchSortableColumn, SortableColumn, TabType, Transaction } from '../types/batch';
 import { getDateRangeDays } from '../utils/Date';
 import { Process } from '../types/Process';
+import { DateRangeOption, dateRangeOptions } from '../types/general';
 
 // Add a date formatting function
 function formatDate(dateString: string | null | undefined) {
@@ -26,289 +27,80 @@ function updateFormatDate(dateString: string | null | undefined) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-// Add interface for optional parameters
-interface FetchBatchOptions {
-  page?: number;
-  limit?: number;
-  dateRange?: string;
-  sortColumn?: string;
-  sortDirection?: 'asc' | 'desc';
-  searchTerm?: string;
-}
-
 export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('Batch');
-
-  // const [showActionTypes, setShowActionTypes] = useState(false);
-  // const [showActionTypesTooltip, setShowActionTypesTooltip] = useState(false);
-
   const [selectedRow, setSelectedRow] = useState<string | null>(null);
-  // const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
-
   const [searchDate, setSearchDate] = useState('');
   const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false);
-  const [selectedDateRange, setSelectedDateRange] = useState<typeof dateRangeOptions[number]>('Last 7 days');
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('Last 7 days');
   const [sortColumn, setSortColumn] = useState<SortableColumn>('hrpsDateTime');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  
-  //Batches
   const [searchTerm, setSearchTerm] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionTypesLoading, setIsActionTypesLoading] = useState(true);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [totalPage, setTotalPage] = useState(1);
-
   const [currentPage, setCurrentPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
-
-  const [processes, setProcesses] = useState<Process[]>([]);
-  const [totalProcesses, setTotalProcesses] = useState(0);
   const [processSortColumn, setProcessSortColumn] = useState<'processDateTime'>('processDateTime');
   const [processSortDirection, setProcessSortDirection] = useState<'asc' | 'desc'>('desc');
-
   const [getActionTypes, setGetActionTypes] = useState<boolean>(false);
-  //const [actionTypes, setActionTypes] = useState<string[]>([]);
-  const [batchActionType, setBatchActionType] = useState<ActionType[]>([]);
-
-  const statusOptions = ['Success', 'Failed', 'Pending'] as const;
-  type StatusOption = typeof statusOptions[number];
-
-  const dateRangeOptions = [
-    'Last 7 days',
-    'Last 30 days',
-    'Last 3 months',
-    'Last 6 months',
-    'Last 1 year',
-  ] as const;
-  type DateRangeOption = typeof dateRangeOptions[number];
-
-
-  const downloadOptions = [
-    { id: 'batch', label: 'Batch Table' }
-  ] as const;
-
-  // Single declaration of handlers with proper types
-  const handleTabChange = (tab: TabType): void => {
-    
-    if (tab === activeTab) return;
-    
-    setActiveTab(tab);
-    // console.log('New activeTab set to:', tab);
-    
-    switch (tab) {
-      case 'Overview':
-        router.push('/');
-        break;
-      case 'Batch':
-        router.push('/batch');
-        break;
-      case 'Processes':
-        router.push('/processes');
-        break;
-      default:
-        break;
-    }
-  };
-
-   // Update fetchProcessData to load saved changes after fetching
-  const fetchProcessTypes = async (hrpsDate: string) => {
-    try {
-      setIsActionTypesLoading(true);
-      const queryParams = new URLSearchParams({
-        apiSearch: hrpsDate
-      });
-
-      const response = await fetch(`${config.API_URL}/hrp/processes?${queryParams.toString()}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      
-      if (data.error) {
-        setError(data.error);
-        setProcesses([]);
-        setTotalProcesses(0);
-      } else {
-        setProcesses(data.data.data);
-        setTotalProcesses(data.data.total);
-        setError(null);
-
-
-
-        setGetActionTypes(true);
-
-      }
-    } catch (error) {
-      console.error('❌ Error fetching process data:', error);
-      setError('Failed to fetch process data');
-      setProcesses([]);
-      setTotalProcesses(0);
-    } finally {
-      setIsActionTypesLoading(false);
-      
-    }
-  };
-
-  useEffect(() => {
-    if (getActionTypes) {
-       setBatchActionType(handleActionTypes(processes));
-    }
-  }, [getActionTypes]);
-
-  const handleActionTypes = (processes: Process[]) => {
-    const actionTypeMap: { [key: string]: number } = {};
-    processes.forEach((process) => {
-      actionTypeMap[process.actionType] = (actionTypeMap[process.actionType] || 0) + 1;
-    });
-    const result = Object.entries(actionTypeMap).map(([type, count]) => ({ type, count }));
-    // console.log("Batch Action Types: ", result);
-    return result;
-  }
-
-  const handleSearchChange = (val: string) => {
-    setSearchTerm(val);
-    setPage(0);
-  };
-
+  
   const handleDateRangeChange = (range: DateRangeOption) => {
     setSelectedDateRange(range);
+    setShowDateRangeDropdown(false);
     setPage(0);
   };
 
-  const handleDateRangeSelect = (range: DateRangeOption): void => {
-    handleDateRangeChange(range);
-    setShowDateRangeDropdown(false);
-  };
+  const handleTabChange = (tab: 'Overview' | 'Batch' | 'Processes') => {
+      if (tab === activeTab) return;
 
-  // Add sorting function
-  const handleSort = (column: SortableColumn) => {
-  if (sortColumn === column) {
-    setSortDirection(dir => dir === 'asc' ? 'desc' : 'asc');
-  } else {
-    setSortColumn(column);
-    setSortDirection('desc');
-  }
-  setPage(0); // reset to first page on sort
-};
-
-
-  // Add sorting function for the data
-  const sortData = (data: Transaction[]) => {
-    // console.log('🔄 SORTING DATA:', { sortColumn, sortDirection });
-    return [...data].sort((a, b) => {
-      const aValue = a[sortColumn];
-      const bValue = b[sortColumn];
-
-      // Handle date fields
-      if (sortColumn === 'hrpsDateTime' || sortColumn === 'pickupDate') {
-        const dateA = new Date(aValue || '').getTime();
-        const dateB = new Date(bValue || '').getTime();
-        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      switch (tab) {
+        case 'Overview':
+          router.push('/');
+          break;
+        case 'Batch':
+          router.push('/batch');
+          break;
+        case 'Processes':
+          router.push('/processes');
+          break;
       }
+    };
 
-      // Handle numeric fields
-      if (sortColumn === 'totalCSVFiles' || sortColumn === 'batchJobId') {
-        const numA = Number(aValue) || 0;
-        const numB = Number(bValue) || 0;
-        return sortDirection === 'asc' ? numA - numB : numB - numA;
-      }
-
-      // Handle string fields
-      const strA = String(aValue || '').toLowerCase();
-      const strB = String(bValue || '').toLowerCase();
-      return sortDirection === 'asc' 
-        ? strA.localeCompare(strB)
-        : strB.localeCompare(strA);
-    });
-  };
-
-  // Update filter function for transactions to search formatted dates
-  const filterTransactions = (transactions: Transaction[]) => {
-    const searchTerm = searchDate.toLowerCase();
-
-    const days = getDateRangeDays(selectedDateRange);
-    const now = new Date();
-    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-
-    return transactions.filter((transaction) => {
-      
-      // Date range filter (using hrpsDateTime)
-      const transactionDate = new Date(transaction.hrpsDateTime);
-      const inDateRange = selectedDateRange === 'Last 7 days' || (transactionDate >= startDate);
-      
-      // Search filter
-      const matchesSearch =
-        searchTerm === '' ||
-       (transaction.batchJobId &&
-          transaction.batchJobId.toString().toLowerCase().includes(searchTerm))
-        ||
-        (transaction.hrpsDateTime && (
-          transaction.hrpsDateTime.toLowerCase().includes(searchTerm) ||
-          updateFormatDate(transaction.hrpsDateTime).toLowerCase().includes(searchTerm)
-        )) ||
-        (transaction.pickupDate && (
-          transaction.pickupDate.toLowerCase().includes(searchTerm) ||
-          updateFormatDate(transaction.pickupDate).toLowerCase().includes(searchTerm)
-        )) ||
-        (transaction.createdDate && (
-          transaction.createdDate.toLowerCase().includes(searchTerm) ||
-          updateFormatDate(transaction.createdDate).toLowerCase().includes(searchTerm)
-        )) ||
-        (transaction.status && transaction.status.toLowerCase().includes(searchTerm));
-      
-      return inDateRange && matchesSearch;
-        
-
-    });
-  };
-
-  // Update fetchBatchData function to accept optional parameters
-  const fetchBatchData = async (options: FetchBatchOptions = {}) => {
+  const fetchBatchData = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
+      const days = getDateRangeDays(selectedDateRange);
       const queryParams = new URLSearchParams({
-        page: String(page),
-          limit: String(rowsPerPage),
-          dateRange: selectedDateRange,
-          sortColumn,
-          sortDirection,
-          searchTerm:searchDate
-        });
+        page: String(page + 1),
+        limit: String(rowsPerPage),
+        sortColumn,
+        sortDirection,
+        searchTerm: searchDate,
+        daysRange: String(days)
+      });
 
-      // Add search term if provided
-      if (options.searchTerm) {
-        queryParams.append('search', options.searchTerm);
-      }
-
-      queryParams.set('page', String((options.page ?? page) + 1));
-
-      const response = await fetch(`${config.API_URL}/hrp/batches?${queryParams.toString()}`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      const response = await fetch(`${config.API_URL}/hrp/batches?${queryParams.toString()}`);
       const result = await response.json();
-      console.log('data here: ...', result);
 
       if (result.data?.data) {
-        const sortedData = sortData(result.data.data);
-        setTransactions(sortedData);
+        setTransactions(result.data.data);
         setTotalTransactions(result.data.totalRecords);
         setTotalPage(result.data.totalPage);
         setCurrentPage(result.data.currentPage);
       } else {
-        // console.log('❌ NO VALID TRANSACTIONS DATA');
         setTransactions([]);
         setTotalTransactions(0);
-      };
+      }
     } catch (err) {
-      // console.error('❌ ERROR:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
       setTransactions([]);
       setTotalTransactions(0);
@@ -317,35 +109,9 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
     }
   };
 
-
-  // When the user changes rows per page, reset page to 0
-    const handleRowsPerPageChange = (newRowsPerPage: number) => {
-    setRowsPerPage(newRowsPerPage);
-    setPage(0);
-  };
-
-  // When the user changes page
-  const handlePageChange = (newPage: number) => setPage(newPage);
-
-  // Centralized effect to fetch data when any filter or pagination changes
   useEffect(() => {
-    fetchBatchData({
-      page,
-      limit: rowsPerPage,
-      dateRange: selectedDateRange,
-      sortColumn,
-      sortDirection,
-      searchTerm: searchDate
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, searchDate, activeTab]);
-
-  useEffect(() => {
-    if (selectedRow) {
-      fetchProcessTypes(selectedRow);
-
-    }
-  }, [selectedRow]);
+    fetchBatchData();
+  }, [page, rowsPerPage, selectedDateRange, sortColumn, sortDirection, searchDate]);
     
 
   // Update the filtered transactions to use both filter and sort
@@ -381,47 +147,35 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
     });
   };
 
-  // Update useEffect to handle process filtering
-  useEffect(() => {
-    const fetchProcessData = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${config.API_URL}/hrp/processes?`);
-        const data = await response.json();
-        
-        if (data.error) {
-          setError(data.error);
-        } else {
-          // Apply filters to the fetched data
-          const filteredData = filterProcesses(data.data.data);
-          // console.log('Fetched processes:', filteredData);
-          //setProcesses(filteredData)
-          setProcesses(Array.isArray(filteredData) ? filteredData : [])
-          setTotalProcesses(filteredData.length);
-        }
-      } catch (error) {
-        setError('Failed to fetch process data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (activeTab === 'Processes') {
-      //fetchProcessData();
-    }
-  }, [page, rowsPerPage, selectedDateRange, processSortColumn, processSortDirection, searchDate, activeTab]);
-
-  const handleViewDetails = (hrpsDate: string) => {
-    setSelectedRow(formatDate(hrpsDate));
-    // setShowActionTypes(true);
-  };
-  
+  const handleActionTypes = (processes: Process[]) => {
+    const actionTypeMap: { [key: string]: number } = {};
+    processes.forEach((process) => {
+      actionTypeMap[process.actionType] = (actionTypeMap[process.actionType] || 0) + 1;
+    });
+    const result = Object.entries(actionTypeMap).map(([type, count]) => ({ type, count }));
+    // console.log("Batch Action Types: ", result);
+    return result;
+  }
 
   //Processes is Transaction
-  const handleViewTransactionDetails = (hrpsDateTime: string) => {
-    const formattedDate = formatDate(hrpsDateTime);
-    router.push(`/processes?apiSearch=${encodeURIComponent(formattedDate)}`);
+  const handleViewTransactionDetails = (batchJobId: number) => {
+    router.push(`/processes?batchId=${batchJobId}`);
   };
+
+  const handleSearchChange = (val: string) => {
+    setSearchTerm(val);
+    setPage(0);
+  };
+
+  const handleSort = (column: BatchSortableColumn) => {
+      // console.log('🔄 HANDLING SORT:', { column, currentSort: sortColumn, currentDirection: sortDirection });
+      if (column === sortColumn) {
+        setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSortColumn(column);
+        setSortDirection('desc');
+      }
+    };
 
 
   // Update pagination section
@@ -661,13 +415,12 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
         {/* Dropdowns rendered here, as siblings to table container */}
         {showDateRangeDropdown && (
           <div
-            className="bg-white rounded-md shadow-lg z-[99999] border max-h-[400px] overflow-y-auto"
+            className="absolute mt-2 bg-white rounded-md shadow-lg z-50 border max-h- overflow-y-auto min-w-[10rem]"
             style={{
-              position: 'absolute',
+              position:'-moz-initial',
               top: dropdownPos.top,
-              left: dropdownPos.left,
-              width: dropdownPos.width,
-              minWidth: 192, // 12rem
+              left: dropdownPos.left -140,
+              minWidth: 160, // 12re
             }}
             role="listbox"
             aria-label="Date range options"
@@ -675,7 +428,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
             {dateRangeOptions.map((option) => (
               <button
                 key={option}
-                onClick={() => handleDateRangeSelect(option as DateRangeOption)}
+                onClick={() => handleDateRangeChange(option as DateRangeOption)}
                 className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
                   selectedDateRange === option ? 'bg-gray-50 text-[#1a4f82]' : 'text-gray-700'
                 }`}
@@ -866,9 +619,6 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
                           </div>
                         )}
                       </td>
-
-                    
-
                       <td className="w-[15%] px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                         <div className="relative">
                           <span className={`px-3 py-1 text-sm rounded-full inline-flex items-center ${
@@ -889,7 +639,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
                       <td className="w-[10%] px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                         {batch.status === 'Fail' && (
                           <button
-                            onClick={() => handleViewTransactionDetails(formatDate(batch.hrpsDateTime))}
+                            onClick={() => handleViewTransactionDetails(batch.batchJobId)}
                             className="text-blue-600 hover:text-blue-800 font-medium"
                           >
                             View Detailed Transaction
@@ -1050,8 +800,6 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
           </div>
         </div>
       )}
-
-      
     </div>
   );
 } 
