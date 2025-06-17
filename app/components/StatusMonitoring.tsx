@@ -107,17 +107,29 @@
     useEffect(() => {
       const fetchData = async () => {
         setIsLoading(true);
-        const dateSelected = getDateRangeDays(selectedDateRange).toString();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const batchIdFromUrl = urlParams.get('batchId');
+        if (batchIdFromUrl && !selectedBatchId) {
+          setSelectedBatchId(batchIdFromUrl);
+        }
+
+        // Convert selectedDateRange to a numeric value (assuming 'Last 7 days' => 7)
+        const daysRange = getDateRangeDays(selectedDateRange); 
 
         try {
+          // Create the fetch URL with all parameters
           const url = new URL(`${config.API_URL}/hrp/processes`);
           url.searchParams.set('page', (page + 1).toString());
           url.searchParams.set('limit', rowsPerPage.toString());
-          url.searchParams.set('search', searchDate);
-          url.searchParams.set('dateRange', dateSelected);
+          url.searchParams.set('searchTerm', searchDate);
+          url.searchParams.set('DaysRange', daysRange.toString()); 
           url.searchParams.set('sortColumn', sortColumn);
           url.searchParams.set('sortDirection', sortDirection);
-          if (selectedBatchId) url.searchParams.set('batchId', selectedBatchId);
+
+          if (batchIdFromUrl || selectedBatchId) {
+            url.searchParams.set('batchId', batchIdFromUrl || selectedBatchId!);
+          }
 
           const res = await fetch(url.toString());
           const json = await res.json();
@@ -127,22 +139,22 @@
             setProcesses([]);
             setTotalProcesses(0);
           } else {
-            const sorted = sortProcessData(json.data.data, sortColumn, sortDirection); // 👈 added
-            setProcesses(sorted); 
+            setProcesses(json.data.data);
             setTotalProcesses(json.data.totalRecords);
             setError(null);
           }
-          } catch (err) {
-            setError("Failed to fetch data");
-          } finally {
-            setIsLoading(false);
-          }
-        };
+        } catch (err) {
+          setError('Failed to fetch data');
+        } finally {
+          setIsLoading(false);
+        }
+      };
 
       if (activeTab === 'Processes') {
         fetchData();
       }
-    }, [page, rowsPerPage, searchDate, sortColumn, sortDirection, selectedBatchId, activeTab, selectedDateRange]);
+    }, [page, rowsPerPage, searchDate, sortColumn, sortDirection, selectedBatchId, selectedDateRange, activeTab]);
+
 
     // Navigation handler
     const handleTabChange = (tab: 'Overview' | 'Batch' | 'Processes') => {
@@ -170,7 +182,6 @@
     const handleDateRangeChange = (range: DateRangeOption) => {
       setSelectedDateRange(range);
       setShowDateRangeDropdown(false);
-      
       setPage(0); // Reset to first page when changing date range
     };
 
@@ -357,6 +368,7 @@
       }
       return null;
     };
+
 
     return (
         <div className="flex h-screen w-screen">
