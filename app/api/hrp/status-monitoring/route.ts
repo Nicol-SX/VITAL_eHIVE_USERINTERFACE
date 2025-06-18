@@ -34,7 +34,7 @@ interface HRPSBatchApiResponse {
 
 export async function GET(request: NextRequest) {
   let page = 0;
-  let limit = 50;
+  let limit = 9999;
   let search = '';
   let dateRange = 'Last 7 days';
   let sortColumn = 'hrpsDateTime';
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     page = parseInt(searchParams.get('page') || '0');
-    limit = parseInt(searchParams.get('limit') || '50');
+    limit = parseInt(searchParams.get('limit') || '9999');
     search = searchParams.get('search') || '';
     dateRange = searchParams.get('dateRange') || 'Last 7 days';
     sortColumn = searchParams.get('sortColumn') || 'hrpsDateTime';

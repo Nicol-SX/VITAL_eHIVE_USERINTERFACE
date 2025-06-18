@@ -1,9 +1,11 @@
+ // Add type for sortable columns
+ export type ProcessSortableColumn = 'batchJobId' |'personnelNumber' | 'insertDate' |'nric' |'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage';
+
 // Update StatusMonitoringProps interface
 export interface StatusMonitoringProps {
     defaultTab: 'Overview' | 'Batch' | 'Processes';
     selectedBatchId?: string;
   }
-
 
 export interface ProcessAction {
     id: number;
@@ -33,7 +35,6 @@ export interface ProcessAction {
     batchJobId: number
     action: ProcessAction;
   }
-
     
   // Update Transaction interface
   export interface Transaction {
