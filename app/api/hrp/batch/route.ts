@@ -53,12 +53,18 @@ const getDateRangeDays = (dateRange: string): number => {
 
 export async function GET(request: NextRequest) {
   try {
+    let page = 0;
+    let limit = 50;
+    let sortColumn = 'hrpsDateTime';
+    let sortDirection = 'desc';
+    let searchDate = '';
+
     const searchParams = request.nextUrl.searchParams;
-    const page = searchParams.get('page') || '0';
-    const limit = searchParams.get('limit') || '50';
+    const search = searchParams.get('search') || '';
     const dateRange = searchParams.get('dateRange') || 'Last 7 days';
-    const sortColumn = searchParams.get('sortColumn') || 'hrpsDateTime';
-    const sortDirection = searchParams.get('sortDirection') || 'desc';
+    sortColumn = searchParams.get('sortColumn') || 'hrpsDateTime';
+    sortDirection = searchParams.get('sortDirection') || 'desc';
+    searchDate = searchParams.get('searchDate') || '';
 
     console.log('🚀 API CALL - Request params:', {
       page,
@@ -69,149 +75,161 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate date range
-    const today = new Date();
+    const endDate = new Date();
     let startDate = new Date();
-    //let daysRange = 7;
-    
-    // Ensure we're working with the current date
-    console.log('📅 Current date:', today.toISOString());
+    switch (dateRange) {
+      case 'Last 30 days': startDate.setDate(endDate.getDate() - 30); break;
+      case 'Last 3 months': startDate.setMonth(endDate.getMonth() - 3); break;
+      case 'Last 6 months': startDate.setMonth(endDate.getMonth() - 6); break;
+      case 'Last 1 year': startDate.setFullYear(endDate.getFullYear() - 1); break;
+      default: startDate.setDate(endDate.getDate() - 7);
+    }
 
-    // Construct API query parameters
     const apiQueryParams = new URLSearchParams({
-      Page: (parseInt(page) + 1).toString(), // API uses 1-based indexing
-      Limit: limit,
-      DaysRange: getDateRangeDays(dateRange).toString()
+      currentPage: (page + 1).toString(),
+      dataPerPage: limit.toString(),
+      fromDate: startDate.toISOString(),
+      toDate: endDate.toISOString(),
+      sortBy: sortColumn,
+      sortDirection: sortDirection.toUpperCase()
     });
 
-    // Only add date parameters if not "All Time"
-    
-
-    // Ensure we have a valid URL
-    const apiUrl = new URL(`${HRPS_API_BASE_URL}/HRP/Batches`);
-    apiUrl.search = apiQueryParams.toString();
-    
-    console.log('🌐 Calling HRPS API:', apiUrl.toString());
-    console.log('🔍 Query Parameters:', Object.fromEntries(apiQueryParams.entries()));
-    console.log('📊 Sort Parameters:', {
-      sortColumn,
-      sortDirection,
-      apiSortBy: sortColumn,
-      apiSortDirection: sortDirection.toUpperCase()
-    });
-
-    // Make API call to HRPS
-    const response = await fetch(apiUrl.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ HRPS API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: apiUrl.toString(),
-        errorText
-      });
-      throw new Error(`HRPS API error: ${response.status} - ${errorText || response.statusText}`);
+    if (search) {
+      apiQueryParams.append('searchTerm', search);
     }
 
-    const apiResponse: ApiResponse = await response.json();
-    
-    // Log the first few items before and after sorting
-    console.log('📦 First few items before processing:', 
-      apiResponse.data.data.slice(0, 3).map(item => ({
-        hrpsDateTime: item.hrpsDateTime,
-        pickupDate: item.pickupDate,
-        totalCSVFiles: item.totalCSVFiles,
-        status: item.status,
-        createdDate: item.createdDate
-      }))
-    );
-
-    // Sort the data if needed (as a fallback)
-    if (apiResponse.data.data.length > 0) {
-      apiResponse.data.data.sort((a, b) => {
-        const aValue = a[sortColumn as keyof BatchData];
-        const bValue = b[sortColumn as keyof BatchData];
-        
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return sortDirection === 'asc' 
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
-        }
-        
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortDirection === 'asc'
-            ? aValue - bValue
-            : bValue - aValue;
-        }
-        
-        return 0;
-      });
+    // Add searchDate if it exists
+    if (searchDate) {
+      apiQueryParams.append('searchDate', searchDate);
     }
 
-    console.log('📦 First few items after processing:', 
-      apiResponse.data.data.slice(0, 3).map(item => ({
-        hrpsDateTime: item.hrpsDateTime,
-        pickupDate: item.pickupDate,
-        totalCSVFiles: item.totalCSVFiles,
-        status: item.status,
-        createdDate: item.createdDate
-      }))
-    );
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
 
-    console.log('📦 HRPS API Response:', {
-      status: response.status,
-      message: apiResponse.message,
-      errorMessage: apiResponse.errorMessage,
-      dataCount: apiResponse.data.data.length,
-      totalPages: apiResponse.data.totalPage,
-      dataPerPage: apiResponse.data.dataPerPage,
-      sortColumn,
-      sortDirection,
-      requestUrl: apiUrl.toString(),
-      queryParams: Object.fromEntries(apiQueryParams.entries())
-    });
-
-    // Check for API-level error message
-    if (apiResponse.message !== "SUCCESS" || apiResponse.errorMessage !== null) {
-      console.error('❌ API Error:', {
-        message: apiResponse.message,
-        errorMessage: apiResponse.errorMessage
+    try {
+      const response = await fetch(`${HRPS_API_BASE_URL}/HRP/Batches?${apiQueryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
       });
-      throw new Error(apiResponse.errorMessage || 'API returned an unsuccessful response');
-    }
 
-    // Transform the response to match the expected format
-    const transformedData = {
-      transactions: {
-        data: apiResponse.data.data.map((item: BatchData) => {
-          console.log('🔄 Processing item:', item); // Log each item being processed
-          return {
-            batchJobId: item.batchJobId,
-            hrpsDateTime: item.hrpsDateTime,
-            pickupDate: item.pickupDate,
-            totalCSVFiles: item.totalCSVFiles,
-            status: item.status,
-            createdDate: item.createdDate,
-            lastUpdatedDate: item.lastUpdatedDate
-          };
-        }),
-        //Fix later!
-        total: apiResponse.data.totalRecords,
-        totalPage: apiResponse.data.totalPage,
-        dataPerPage: apiResponse.data.dataPerPage,
-        currentPage: apiResponse.data.currentPage,
-         // Use total records from API
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ HRPS API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: `${HRPS_API_BASE_URL}/HRP/Batches?${apiQueryParams.toString()}`,
+          errorText
+        });
+        throw new Error(`HRPS API error: ${response.status} - ${errorText || response.statusText}`);
       }
-    };
 
-    console.log('✅ Transformed Data:', transformedData);
-    return NextResponse.json(transformedData);
+      const apiResponse: ApiResponse = await response.json();
+      
+      // Log the first few items before and after sorting
+      console.log('📦 First few items before processing:', 
+        apiResponse.data.data.slice(0, 3).map(item => ({
+          hrpsDateTime: item.hrpsDateTime,
+          pickupDate: item.pickupDate,
+          totalCSVFiles: item.totalCSVFiles,
+          status: item.status,
+          createdDate: item.createdDate
+        }))
+      );
+
+      // Sort the data if needed (as a fallback)
+      if (apiResponse.data.data.length > 0) {
+        apiResponse.data.data.sort((a, b) => {
+          const aValue = a[sortColumn as keyof BatchData];
+          const bValue = b[sortColumn as keyof BatchData];
+          
+          if (typeof aValue === 'string' && typeof bValue === 'string') {
+            return sortDirection === 'asc' 
+              ? aValue.localeCompare(bValue)
+              : bValue.localeCompare(aValue);
+          }
+          
+          if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return sortDirection === 'asc'
+              ? aValue - bValue
+              : bValue - aValue;
+          }
+          
+          return 0;
+        });
+      }
+
+      console.log('📦 First few items after processing:', 
+        apiResponse.data.data.slice(0, 3).map(item => ({
+          hrpsDateTime: item.hrpsDateTime,
+          pickupDate: item.pickupDate,
+          totalCSVFiles: item.totalCSVFiles,
+          status: item.status,
+          createdDate: item.createdDate
+        }))
+      );
+
+      console.log('📦 HRPS API Response:', {
+        status: response.status,
+        message: apiResponse.message,
+        errorMessage: apiResponse.errorMessage,
+        dataCount: apiResponse.data.data.length,
+        totalPages: apiResponse.data.totalPage,
+        dataPerPage: apiResponse.data.dataPerPage,
+        sortColumn,
+        sortDirection,
+        requestUrl: `${HRPS_API_BASE_URL}/HRP/Batches?${apiQueryParams.toString()}`,
+        queryParams: Object.fromEntries(apiQueryParams.entries())
+      });
+
+      // Check for API-level error message
+      if (apiResponse.message !== "SUCCESS" || apiResponse.errorMessage !== null) {
+        console.error('❌ API Error:', {
+          message: apiResponse.message,
+          errorMessage: apiResponse.errorMessage
+        });
+        throw new Error(apiResponse.errorMessage || 'API returned an unsuccessful response');
+      }
+
+      // Transform the response to match the expected format
+      const transformedData = {
+        transactions: {
+          data: apiResponse.data.data.map((item: BatchData) => {
+            console.log('🔄 Processing item:', item); // Log each item being processed
+            return {
+              batchJobId: item.batchJobId,
+              hrpsDateTime: item.hrpsDateTime,
+              pickupDate: item.pickupDate,
+              totalCSVFiles: item.totalCSVFiles,
+              status: item.status,
+              createdDate: item.createdDate,
+              lastUpdatedDate: item.lastUpdatedDate
+            };
+          }),
+          //Fix later!
+          total: apiResponse.data.totalRecords,
+          totalPage: apiResponse.data.totalPage,
+          dataPerPage: apiResponse.data.dataPerPage,
+          currentPage: apiResponse.data.currentPage,
+           // Use total records from API
+        }
+      };
+
+      console.log('✅ Transformed Data:', transformedData);
+      return NextResponse.json(transformedData);
+    } catch (error) {
+      console.error('❌ Error fetching batch data:', error);
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch batch data', 
+          details: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString()
+        },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('❌ Error fetching batch data:', error);
     return NextResponse.json(

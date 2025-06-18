@@ -39,7 +39,6 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
   const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('Last 7 days');
   const [sortColumn, setSortColumn] = useState<SortableColumn>('hrpsDateTime');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [searchTerm, setSearchTerm] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionTypesLoading, setIsActionTypesLoading] = useState(true);
@@ -84,10 +83,11 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
         limit: String(rowsPerPage),
         sortColumn,
         sortDirection,
-        searchTerm: searchDate,
+        Search: searchDate,
         daysRange: String(days)
       });
 
+    
       const response = await fetch(`${config.API_URL}/hrp/batches?${queryParams.toString()}`);
       const result = await response.json();
 
@@ -116,37 +116,6 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
 
   // Update the filtered transactions to use both filter and sort
   const filteredTransactions = transactions;
-
-  // Add a debug effect to monitor state changes
-  useEffect(() => {
-    // console.log('Current transactions state:', transactions);
-    // console.log('Current loading state:', isLoading);
-    // console.log('Current error state:', error);
-  }, [transactions, isLoading, error]);
-
-  // Add process filter function
-  const filterProcesses = (processes: Process[]): Process[] => {
-    return processes.filter(process => {
-      const searchTerm = searchDate.toLowerCase();
-      const matchesSearch = searchTerm === '' || 
-        process.insertDate.toLowerCase().includes(searchTerm) ||
-        process.nric.toLowerCase().includes(searchTerm) ||
-        process.name.toLowerCase().includes(searchTerm) ||
-        process.actionType.toLowerCase().includes(searchTerm) ||
-        process.personnelArea.toLowerCase().includes(searchTerm) ||
-        process.status.toLowerCase().includes(searchTerm) ||
-        process.errorMessage.toLowerCase().includes(searchTerm);
-
-      const processDate = new Date(process.insertDate);
-      const now = new Date();
-      const days = getDateRangeDays(selectedDateRange);
-      const startDate = new Date(now.setDate(now.getDate() - days));
-      const matchesDateRange = processDate >= startDate;
-
-      return matchesSearch && matchesDateRange;
-    });
-  };
-
   const handleActionTypes = (processes: Process[]) => {
     const actionTypeMap: { [key: string]: number } = {};
     processes.forEach((process) => {
@@ -162,9 +131,9 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
     router.push(`/processes?batchId=${batchJobId}`);
   };
 
-  const handleSearchChange = (val: string) => {
-    setSearchTerm(val);
-    setPage(0);
+  const handleSearch = (searchTerm: string) => {
+    setSearchDate(searchTerm);
+    setPage(0); // Reset to first page when filtering
   };
 
   const handleSort = (column: BatchSortableColumn) => {
@@ -177,9 +146,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
       }
     };
 
-
   // Update pagination section
-  const totalPages = totalPage
   const startItem = page * rowsPerPage + 1;
   const endItem = Math.min((page + 1) * rowsPerPage, totalTransactions);
 
@@ -266,14 +233,16 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
     const setLoading = forModal ? setIsModalActionTypesLoading : setIsHoveredActionTypesLoading;
     const setError = forModal ? setModalActionTypesError : setHoveredActionTypesError;
     const setActionTypes = forModal ? setModalActionTypes : setHoveredActionTypes;
+  
     setLoading(true);
     setError(null);
+  
     try {
-      const queryParams = new URLSearchParams({ apiSearch: formatDate(batch.hrpsDateTime) });
-      const response = await fetch(`${config.API_URL}/hrp/processes?${queryParams.toString()}`);
+      const response = await fetch(`${config.API_URL}/HRP/Processes?BatchJobId=${batch.batchJobId}`);
       const data = await response.json();
-      if (data.error) {
-        setError(data.error);
+  
+      if (data.error || data.errorMessage) {
+        setError(data.error || data.errorMessage);
         setActionTypes([]);
       } else {
         setActionTypes(handleActionTypes(data.data.data));
@@ -285,7 +254,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
       setLoading(false);
     }
   };
-
+  
   return (
     <div className="flex h-screen w-full">
       {/* Sidebar - Fixed on left */}
@@ -361,15 +330,16 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
                   type="text"
                   id="search-input"
                   name="search"
-                  value={searchTerm}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder={`Search ${activeTab.toLowerCase()}...`}
+                  value={searchDate}
+                  onChange={(e) =>handleSearch(e.target.value)}
+                  // placeholder={`Search ${activeTab.toLowerCase()}...`}
+                  placeholder={`search by date yyyy/mm/dd `}
                   className="border rounded px-3 py-1 text-sm w-full sm:w-64 focus:outline-none focus:border-[#1a4f82] pr-8"
                   aria-label="Search transactions"
                 />
                 {searchDate && (
                   <button
-                    onClick={() => handleSearchChange('')}
+                    onClick={() => handleSearch('')}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     aria-label="Clear search"
                   >

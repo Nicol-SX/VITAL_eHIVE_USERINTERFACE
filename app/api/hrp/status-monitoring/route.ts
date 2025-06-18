@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
   let dateRange = 'Last 7 days';
   let sortColumn = 'hrpsDateTime';
   let sortDirection = 'desc';
+  let batchJobId = '';
 
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
     dateRange = searchParams.get('dateRange') || 'Last 7 days';
     sortColumn = searchParams.get('sortColumn') || 'hrpsDateTime';
     sortDirection = searchParams.get('sortDirection') || 'desc';
+    batchJobId = searchParams.get('BatchJobId') || '';
 
     // Calculate date range
     const endDate = new Date();
@@ -77,7 +79,8 @@ export async function GET(request: NextRequest) {
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
 
     try {
-      const response = await fetch(`${HRPS_API_BASE_URL}/HRP/Batches?${apiQueryParams}`, {
+      const apiUrl = `${HRPS_API_BASE_URL}/HRP/Processes?DaysRange=${dateRange}${batchJobId ? `&BatchJobId=${batchJobId}` : ''}`;
+      const response = await fetch(apiUrl, {
         headers: { 'Accept': 'application/json' }, // ✅ fixed from text/plain
         signal: controller.signal
       });

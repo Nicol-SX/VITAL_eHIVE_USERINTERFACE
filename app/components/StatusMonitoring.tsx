@@ -122,13 +122,13 @@
           const url = new URL(`${config.API_URL}/hrp/processes`);
           url.searchParams.set('page', (page + 1).toString());
           url.searchParams.set('limit', rowsPerPage.toString());
-          url.searchParams.set('searchTerm', searchDate);
+          url.searchParams.set('Search', searchDate);
           url.searchParams.set('DaysRange', daysRange.toString()); 
           url.searchParams.set('sortColumn', sortColumn);
           url.searchParams.set('sortDirection', sortDirection);
 
           if (batchIdFromUrl || selectedBatchId) {
-            url.searchParams.set('batchId', batchIdFromUrl || selectedBatchId!);
+            url.searchParams.set('BatchJobId', batchIdFromUrl || selectedBatchId!);
           }
 
           const res = await fetch(url.toString());
@@ -353,13 +353,13 @@
     const renderBatchFilter = () => {
       if (selectedBatchId) {
         return (
-          <div className="flex items-center space-x-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center space-x-2 px-2 py-1 bg-blue-50 border border-blue-200 rounded-md ">
             <span className="text-sm text-blue-700">
               Filtered by Batch ID: {selectedBatchId}
             </span>
             <button
               onClick={handleClearBatchFilter}
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              className="text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-md font-bold hover:text-blue-800 text-sm font-medium"
             >
               Clear Filter
             </button>
@@ -449,7 +449,8 @@
                       name="search"
                       value={searchDate}
                       onChange={(e) => handleSearch(e.target.value)}
-                      placeholder={`Search ${activeTab.toLowerCase()}...`}
+                      // placeholder={`Search ${activeTab.toLowerCase()}...`}
+                      placeholder={`search by date yyyy/mm/dd `}
                       className="border rounded px-3 py-1 text-sm w-full sm:w-64 focus:outline-none focus:border-[#1a4f82] pr-8"
                       aria-label="Search transactions"
                     />
@@ -470,7 +471,7 @@
                     <div className="flex items-center ">
                       <button
                         onClick={() => {
-                          setSelectedProcess(null); // batch mode, not single process
+                          setSelectedProcess(null); 
                           setIsStatusModalOpen(true);
                         }}
                         className="bg-[#1a4f82] hover:bg-[#15406c] px-3 py-1 rounded-md text-white text-sm font-medium flex items-center"
