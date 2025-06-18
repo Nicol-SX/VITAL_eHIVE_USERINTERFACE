@@ -20,7 +20,6 @@
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
- 
 
   const buildProcessUrl = ({
     baseUrl,
@@ -447,7 +446,6 @@
                 }
               >
                 Overview
-                {/* No underline for Overview since it's disabled */}
               </button>
               <button
                 onClick={() => handleTabChange('Batch')}
@@ -826,7 +824,6 @@
                                   ({formatDate(process.action.insertDate)}):&nbsp;{process.action.comment}
                                 </div>
                               )}
-
                               {/* if there’s no action yet and status is FAIL, show Update button */}
                               {(!process.action || !process.action.insertDate) && process.status.toUpperCase() === 'FAIL' && (
                                 <button
@@ -855,7 +852,6 @@
               </div>
             )}
           </div>
-
           {/* Pagination - Sticky bottom */}
           <div className="sticky bottom-0 bg-white border-t border-gray-200">
             <div className="flex items-center justify-between px-6 py-4">
@@ -895,7 +891,6 @@
                   >
                     &lt;&lt;
                   </button>
-
                   {/* Previous page */}
                   <button
                     onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
@@ -907,7 +902,6 @@
                   >
                     &lt;
                   </button>
-
                   {/* Dynamic numbered buttons */}
                   {getPageNumbers().map((pageNum) => (
                     <button
@@ -921,7 +915,6 @@
                       {pageNum + 1}
                     </button>
                   ))}
-
                   {/* Next page */}
                   <button
                     onClick={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
@@ -933,7 +926,6 @@
                   >
                     &gt;
                   </button>
-
                   {/* Last page */}
                   <button
                     onClick={() => setPage(totalPages - 1)}
