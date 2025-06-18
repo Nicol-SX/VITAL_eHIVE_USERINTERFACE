@@ -6,7 +6,7 @@
   import config from '../common/config';
   import toLocalISOString from '../common/to-local-iso-string';
   import { DateRangeOption, dateRangeOptions } from '../types/general';
-  import { Process, StatusMonitoringProps, Transaction } from '../types/Process';
+  import { Process, ProcessSortableColumn, StatusMonitoringProps, Transaction } from '../types/Process';
   import { getStatusStyle, getStatusText } from '../utils/Status';
   import { getDateRangeDays } from '../utils/Date';
 
@@ -20,8 +20,37 @@
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
-  // Add type for sortable columns
-  type ProcessSortableColumn = 'batchJobId' |'personnelNumber' | 'insertDate' |'nric' |'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage';
+ 
+
+  const buildProcessUrl = ({
+    baseUrl,
+    page = 0,
+    limit = 50,
+    search = '',
+    dateRange,
+    sortColumn = 'insertDate',
+    sortDirection = 'desc',
+    batchJobId
+  }: {
+    baseUrl: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+    dateRange: DateRangeOption;
+    sortColumn?: string;
+    sortDirection?: string;
+    batchJobId?: string | null;
+  }) => {
+    const url = new URL(`${baseUrl}/HRP/Processes`);
+    url.searchParams.set('page', (page + 1).toString());
+    url.searchParams.set('limit', limit.toString());
+    url.searchParams.set('Search', search || '');
+    url.searchParams.set('DaysRange', getDateRangeDays(dateRange).toString());
+    // url.searchParams.set('sortColumn', sortColumn);
+    // url.searchParams.set('sortDirection', sortDirection);
+    if (batchJobId) url.searchParams.set('BatchJobId', batchJobId);
+    return url.toString();
+  };
 
   // Add sorting function for process data
   const sortProcessData = (
@@ -107,52 +136,42 @@
     useEffect(() => {
       const fetchData = async () => {
         setIsLoading(true);
-
         const urlParams = new URLSearchParams(window.location.search);
         const batchIdFromUrl = urlParams.get('batchId');
-        if (batchIdFromUrl && !selectedBatchId) {
-          setSelectedBatchId(batchIdFromUrl);
-        }
-
-        // Convert selectedDateRange to a numeric value (assuming 'Last 7 days' => 7)
-        const daysRange = getDateRangeDays(selectedDateRange); 
-
+        if (batchIdFromUrl && !selectedBatchId) setSelectedBatchId(batchIdFromUrl);
+    
         try {
-          // Create the fetch URL with all parameters
-          const url = new URL(`${config.API_URL}/hrp/processes`);
-          url.searchParams.set('page', (page + 1).toString());
-          url.searchParams.set('limit', rowsPerPage.toString());
-          url.searchParams.set('Search', searchDate);
-          url.searchParams.set('DaysRange', daysRange.toString()); 
-          url.searchParams.set('sortColumn', sortColumn);
-          url.searchParams.set('sortDirection', sortDirection);
-
-          if (batchIdFromUrl || selectedBatchId) {
-            url.searchParams.set('BatchJobId', batchIdFromUrl || selectedBatchId!);
-          }
-
-          const res = await fetch(url.toString());
+          const fetchUrl = buildProcessUrl({
+            baseUrl: config.API_URL || '',
+            page,
+            limit: rowsPerPage,
+            search: searchDate,
+            dateRange: selectedDateRange,
+            sortColumn,
+            sortDirection,
+            batchJobId: batchIdFromUrl || selectedBatchId
+          });
+    
+          const res = await fetch(fetchUrl);
           const json = await res.json();
-
+    
           if (json.error || json.errorMessage) {
             setError(json.error || json.errorMessage);
             setProcesses([]);
             setTotalProcesses(0);
           } else {
-            setProcesses(json.data.data);
+            setProcesses(sortProcessData(json.data.data, sortColumn, sortDirection));
             setTotalProcesses(json.data.totalRecords);
             setError(null);
           }
-        } catch (err) {
+        } catch {
           setError('Failed to fetch data');
         } finally {
           setIsLoading(false);
         }
       };
-
-      if (activeTab === 'Processes') {
-        fetchData();
-      }
+    
+      if (activeTab === 'Processes') fetchData();
     }, [page, rowsPerPage, searchDate, sortColumn, sortDirection, selectedBatchId, selectedDateRange, activeTab]);
 
 
@@ -211,52 +230,75 @@
     };
 
     // Download CSV handler
-    function downloadCSV(processes: Process[], filename = 'process_table.csv') {
-      if (!processes || processes.length === 0) return;
-      const headers = [
-        'BATCH ID',
-        'PROCESS DATE TIME',
-        'NRIC',
-        'PERNR NUMBER',
-        'ACTION TYPE',
-        'AGENCY',
-        'STATUS',
-        'ERROR MESSAGE'
-      ];
-
-      const rows = processes.map((proc) => {
-        const formattedDate = formatDate(proc.insertDate);
-        const excelDate = `="${formattedDate}"`; 
-        const batch = proc.batchJobId != null ? String(proc.batchJobId) : '';
-        const errMsg = proc.errorMessage?.trim() !== '' ? proc.errorMessage : '';
-
-        return [
-          batch,
-          excelDate,
-          proc.nric,
-          proc.personnelNumber,
-          proc.actionType,
-          proc.personnelArea,
-          proc.status,
-          errMsg
-        ];
+    const downloadCSV = async () => {
+      const downloadUrl = buildProcessUrl({
+        baseUrl: config.API_URL || '',
+        page: 0,
+        limit: 9999,
+        search: searchDate,
+        dateRange: selectedDateRange,
+        sortColumn,
+        sortDirection,
+        batchJobId: selectedBatchId
       });
-
-      const escapeCell = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
-      const headerLine = headers.map(escapeCell).join(',');
-      const dataLines = rows.map(row => row.map(escapeCell).join(','));
-      const csvContent = [headerLine, ...dataLines].join('\r\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+    
+      try {
+        const res = await fetch(downloadUrl);
+        const json = await res.json();
+    
+        if (!json.data?.data?.length) {
+          alert('No data available to download');
+          return;
+        }
+    
+        const processes: Process[] = json.data.data;
+        const headers = [
+          'BATCH ID',
+          'PROCESS DATE TIME',
+          'NRIC',
+          'PERNR NUMBER',
+          'ACTION TYPE',
+          'AGENCY',
+          'STATUS',
+          'ERROR MESSAGE'
+        ];
+    
+        const rows = processes.map((proc) => {
+          const formattedDate = formatDate(proc.insertDate);
+          const excelDate = `="${formattedDate}"`; 
+          const batch = proc.batchJobId != null ? String(proc.batchJobId) : '';
+          const errMsg = proc.errorMessage?.trim() !== '' ? proc.errorMessage : '';
+    
+          return [
+            batch,
+            excelDate,
+            proc.nric,
+            proc.personnelNumber,
+            proc.actionType,
+            proc.personnelArea,
+            proc.status,
+            errMsg
+          ];
+        });
+    
+        const escapeCell = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+        const headerLine = headers.map(escapeCell).join(',');
+        const dataLines = rows.map(row => row.map(escapeCell).join(','));
+        const csvContent = [headerLine, ...dataLines].join('\r\n');
+    
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'process_table.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch {
+        alert('Failed to download data');
+      }
+    };
 
     // Add this function inside the StatusMonitoring component, before the return statement
     const handleStatusUpdate = async (
@@ -532,11 +574,9 @@
                     </div>
                   )}
                 </div>
-                <div className="relative">
+                <div className="relative"> 
                   <button 
-                    onClick={() => {
-                      downloadCSV(processes, 'process_table.csv');
-                    }}
+                    onClick={ downloadCSV }
                     className="flex items-center space-x-2 text-sm text-[#1a4f82] hover:bg-blue-50 px-3 py-2 rounded-md whitespace-nowrap"
                     aria-label="Download CSV"
                   >
@@ -545,7 +585,7 @@
                     </svg>
                     <span>Download CSV</span>
                   </button>
-                </div>
+               </div>
               </div>
             </div>
           </div>

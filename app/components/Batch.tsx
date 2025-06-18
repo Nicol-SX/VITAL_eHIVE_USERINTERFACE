@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Tooltip, Button } from "@material-tailwind/react";
 import { useRouter } from 'next/navigation';
 import config from '../common/config';
 import { ActionType, Batch, BatchProps, BatchSortableColumn, SortableColumn, TabType, Transaction } from '../types/batch';
@@ -9,14 +8,6 @@ import { getDateRangeDays } from '../utils/Date';
 import { Process } from '../types/Process';
 import { DateRangeOption, dateRangeOptions } from '../types/general';
 
-// Add a date formatting function
-function formatDate(dateString: string | null | undefined) {
-  if (!dateString) return '-';
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return '-';
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
 
 // Add a date formatting function
 function updateFormatDate(dateString: string | null | undefined) {
@@ -27,10 +18,37 @@ function updateFormatDate(dateString: string | null | undefined) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+function sortBatchData(
+  data: Transaction[],
+  column: BatchSortableColumn,
+  direction: 'asc' | 'desc'
+): Transaction[] {
+  return [...data].sort((a, b) => {
+    const aVal = a[column];
+    const bVal = b[column];
+
+    // Handle date comparison
+    if (column === 'hrpsDateTime' || column === 'pickupDate') {
+      const aDate = new Date(aVal ?? '').getTime();
+      const bDate = new Date(bVal ?? '').getTime();
+      return direction === 'asc' ? aDate - bDate : bDate - aDate;
+    }
+
+    // Handle numeric comparison
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      return direction === 'asc' ? aVal - bVal : bVal - aVal;
+    }
+
+    // Default string comparison
+    const strA = String(aVal ?? '').toLowerCase();
+    const strB = String(bVal ?? '').toLowerCase();
+    return direction === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
+  });
+}
+
 export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('Batch');
-  const [selectedRow, setSelectedRow] = useState<string | null>(null);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -46,9 +64,6 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
   const [totalPage, setTotalPage] = useState(1);
   const [currentPage, setCurrentPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [processSortColumn, setProcessSortColumn] = useState<'processDateTime'>('processDateTime');
-  const [processSortDirection, setProcessSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [getActionTypes, setGetActionTypes] = useState<boolean>(false);
   
   const handleDateRangeChange = (range: DateRangeOption) => {
     setSelectedDateRange(range);
@@ -115,7 +130,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
     
 
   // Update the filtered transactions to use both filter and sort
-  const filteredTransactions = transactions;
+  const filteredTransactions = sortBatchData(transactions, sortColumn, sortDirection);
   const handleActionTypes = (processes: Process[]) => {
     const actionTypeMap: { [key: string]: number } = {};
     processes.forEach((process) => {
@@ -167,53 +182,54 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
     setShowDateRangeDropdown((prev) => !prev);
   };
 
-  // Download CSV handler for batch
-  const handleDownloadCSV = async () => {
-    const endpoint = '/hrps-api/HRP/Batches/Download';
-    const filename = 'batch_table.csv';
-    const removeColumns = ['createddate', 'lastupdateddate']; // all lowercase
-    const dateColumns = ['hrpsdatetime', 'pickupdate']; // all lowercase for case-insensitive match
-
+  const downloadCSV = async () => {
     try {
-      const response = await fetch(endpoint, { method: 'GET' });
-      if (!response.ok) throw new Error('Failed to download CSV');
-
-      const csvtext = await response.text();
-      const rows = csvtext.split('\n');
-      if (rows.length === 0) throw new Error('CSV is empty');
-
-      const header = rows[0].split(',');
-      const headerLowerMap = header.map(col => col.trim().toLowerCase());
-      const filteredHeader = header.filter(
-        column => !removeColumns.includes(column.trim().toLowerCase())
-      );
-
-      // console.log('Filtered header:', filteredHeader);
-
-      const filteredRows = rows.slice(1).map(row => {
-        const values = row.split(',');
-        return filteredHeader.map(column => {
-          const originalIndex = headerLowerMap.indexOf(column.trim().toLowerCase());
-          let value = values[originalIndex];
-          if (dateColumns.includes(column.trim().toLowerCase()) && value) {
-            value = updateFormatDate(value);
-          }
-          return value;
-        }).join(',');
+      const days = getDateRangeDays(selectedDateRange);
+      const queryParams = new URLSearchParams({
+        page: '1',
+        limit: '9999',
+        sortColumn,
+        sortDirection,
+        Search: searchDate,
+        daysRange: String(days),
       });
-
-      const csvContent = [filteredHeader.join(','), ...filteredRows].join('\n');  
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      alert('Error downloading CSV: ' + (err instanceof Error ? err.message : 'Unknown error'));
+  
+      const response = await fetch(`${config.API_URL}/hrp/batches?${queryParams.toString()}`);
+      const json = await response.json();
+  
+      if (!json.data?.data?.length) {
+        alert('No data available to download');
+        return;
+      }
+  
+      const batches: Batch[] = json.data.data;
+      const headers = ['BATCH ID', 'HRPS DATE TIME', 'PICKUP DATE TIME', 'TOTAL CSV FILE', 'STATUS'];
+      const rows = batches.map(batch => [
+        String(batch.batchJobId),
+        `="${updateFormatDate(batch.hrpsDateTime)}"`,
+        `="${updateFormatDate(batch.pickupDate)}"`,
+        String(batch.totalCSVFiles),
+        batch.status ?? '',
+      ]);
+  
+      const escapeCell = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+      const csvContent = [
+        headers.map(escapeCell).join(','),
+        ...rows.map(row => row.map(escapeCell).join(','))
+      ].join('\r\n');
+  
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'batch_table.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('CSV Download Error:', error);
+      alert('Error downloading CSV');
     }
   };
 
@@ -369,7 +385,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
               </div>
               <div className="relative">
                 <button 
-                  onClick={handleDownloadCSV}
+                  onClick={downloadCSV}
                   className="flex items-center space-x-2 text-sm text-[#1a4f82] hover:bg-blue-50 px-3 py-2 rounded-md whitespace-nowrap"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
