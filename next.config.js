@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // basePath: "/hrps",
+
   // Configure experimental features
   experimental: {
     serverActions: {
