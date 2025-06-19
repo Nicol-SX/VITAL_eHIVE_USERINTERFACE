@@ -1,0 +1,85 @@
+Pseudocode of eHIVE VISION :
+1. it will has 2 apps, for api services (wsdl) and scheduller
+2. vision will send json post api to eHIVE api that contains the xml file and save into database
+3. eHIVE scheduller will get the uploaded files then process that
+4. ask wilson if database is exist or not, to save the status of xml file batch. if not exist we must create new database or new table
+5. only xml file with given format <YYYMMDD_VExx.XML> will be process and save the status to database.
+
+6. validate processing means, 
+6.1. the xml file is exists and not corrupted
+6.2. mandatory fields aren't empty
+6.3. verify if the SR already send to eHIVE
+6.4. total number of SRs per batch not exceeding 100 limits
+6.5. total number of attachments per batch not exceeding 2000 limit
+6.6. each SR folder based on the entries given in XML file
+6.7. attachments in each SR folder based on the entries given in XML file
+6.8. attachments checksum with SHA256 based on the entries given in XML file
+
+7. eHIVE scheduller done process the file and save the result to database then trigger eHIVE api to continue
+8. eHIVE send validation result status to VISION, using json post api and trigger email notification for each validated batch to DGS, IT and IH team
+9. eHIVE will deposit validated details status back into the batch folder with named <YYYMMDD_VExx_STATUS.json>
+10. completed batches will be purged after 1 day, definition of Completed batch: All the files in the batch filed into ePFile or run through one round indexing via IC
+
+***Database script:
+CREATE TABLE TbBatch (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    BatchID VARCHAR(50),
+    BatchCreationDate DATE,
+    BatchSRCount INT,
+    BatchFolderPath VARCHAR(100)
+);
+
+CREATE TABLE TbBatchCase (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    CaseID INT,
+    BatchID INT,
+    Agency VARCHAR(50),
+    SiteAgency VARCHAR(50),
+    [Function] VARCHAR(50),
+    LOSTaskCode VARCHAR(20),
+    SRNumber VARCHAR(20),
+    SRSubDate DATE,
+    SRClsDate DATE,
+    ReqEmail VARCHAR(100),
+    CustomerEmailAssigned VARCHAR(100),
+    AttachmentCount INT,
+    FOREIGN KEY (BatchID) REFERENCES TbBatch(ID)
+);
+
+CREATE TABLE TbBatchAttachment (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    AttachmentID INT,
+    CaseID INT,
+    AttachmentName VARCHAR(100),
+    Checksum VARCHAR(255),
+    FOREIGN KEY (CaseID) REFERENCES TbBatchCase(ID)
+);
+
+CREATE TABLE TbBatchValidateResult (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    BatchID INT,
+    BatchStatus VARCHAR(255),
+    BatchStatusDescription VARCHAR(MAX),
+    SrStatus VARCHAR(255),
+    SrStatusDescription VARCHAR(MAX),
+    RawResponse VARCHAR(MAX),
+    FOREIGN KEY (BatchID) REFERENCES TbBatch(ID)
+);
+
+ALTER TABLE TbBatch 
+ADD CreateDate DATETIME DEFAULT GETDATE();
+
+ALTER TABLE TbBatchCase 
+ADD CreateDate DATETIME DEFAULT GETDATE();
+
+ALTER TABLE TbBatchAttachment 
+ADD CreateDate DATETIME DEFAULT GETDATE();
+
+ALTER TABLE TbBatchValidateResult 
+ADD CreateDate DATETIME DEFAULT GETDATE();
+
+***Note:
+1.	Need sample XML file for validation
+2.	Provide all the scenario error descriptions
+3.	  
+
