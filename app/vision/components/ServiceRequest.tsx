@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { mockServiceRequests, mockAttachments } from '../data/mockData';
+import AttachmentPopUp from './AttachmentPopUp';
 
 interface ServiceRequest {
     id: number;
@@ -18,6 +19,7 @@ interface ServiceRequest {
     customerEmail: string;
     attachmentCount: number;
     status: string;
+    errorMessage: string;
 }
 
 interface ServiceRequestProps {
@@ -56,7 +58,7 @@ type DateRangeOption = 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 
 
 export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: ServiceRequestProps) {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Service Requests'>(defaultTab || 'Service Requests');
+    const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Service Requests' | 'Attachments'>(defaultTab || 'Service Requests');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(50);
     const [searchDate, setSearchDate] = useState('');
@@ -72,6 +74,10 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
     const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
     const [selectAll, setSelectAll] = useState(false);
 
+    const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
+    //const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
+
+
     const totalRecords = mockServiceRequests.length;
     const totalPages = Math.ceil(totalRecords / rowsPerPage);
 
@@ -84,7 +90,7 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
     ] as const;
 
     // Navigation handler
-    const handleTabChange = (tab: 'Overview' | 'Batch' | 'Service Requests') => {
+    const handleTabChange = (tab: 'Overview' | 'Batch' | 'Service Requests' | 'Attachments') => {
         if (tab === activeTab) return;
 
         switch (tab) {
@@ -96,6 +102,9 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                 break;
             case 'Service Requests':
                 router.push('/vision/service-requests');
+                break;
+            case 'Attachments':
+                router.push('/vision/attachments');
                 break;
         }
     };
@@ -149,13 +158,36 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
         console.log(`Updating status for service request with id: ${id}`);
     };
 
+    // const onPopupSubmit = (status: 'Reviewed' | 'Others', rawComment?: string) => {
+    //     // // Batch update
+    //     // if (!selectedProcess && selectedRows.size > 0) {
+    //     //   Array.from(selectedRows).forEach((id) => {
+    //     //     const proc = processes.find((p) => p.dataID === id);
+    //     //     if (proc) {
+    //     //       handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags);
+    //     //     }
+    //     //   });
+    //     //   setSelectedRows(new Set());
+    //     //   setIsStatusModalOpen(false);
+    //     //   return;
+    //     // }
+    //     // // Single row update
+    //     // if (selectedProcess) {
+    //     //   handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags);
+    //     //   setIsStatusModalOpen(false);
+    //     //   setSelectedProcess(null);
+    //     // }
+    //   };
+
     const handleViewAttachments = (id: number) => {
         // Implement the logic to view attachments of a service request
+        
         console.log(`Viewing attachments for service request with id: ${id}`);
     };
 
     return (
-        <div className="flex h-screen w-screen">
+        <div>
+            <div className="flex h-screen w-screen">
             {/* Sidebar - Fixed on left */}
             <div className="w-24 bg-[#1a4f82] text-white sticky top-0 left-0 h-screen z-[1000]">
                 <div className="p-4 flex flex-col items-center space-y-8">
@@ -221,6 +253,19 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                         >
                             Service Requests
                             {activeTab === 'Service Requests' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => handleTabChange('Attachments')}
+                            className={`py-4 px-2 relative ${
+                            activeTab === 'Attachments'
+                                ? 'text-[#1a4f82] font-medium'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            Attachments
+                            {activeTab === 'Attachments' && (
                             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
                             )}
                         </button>
@@ -387,6 +432,23 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 )}
                                             </div>
                                         </th>
+
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                            <div className="flex items-center space-x-1">
+                                                <span>EMAIL</span>
+                                                {sortColumn === 'customerEmail' && (
+                                                    <svg 
+                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+
                                         <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>AGENCY</span>
@@ -432,6 +494,21 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 )}
                                             </div>
                                         </th>
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                            <div className="flex items-center space-x-1">
+                                                <span>ERROR MESSAGE</span>
+                                                {sortColumn === 'errorMessage' && (
+                                                    <svg 
+                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
                                         <th scope="col" className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>ATTACHMENTS</span>
@@ -447,21 +524,7 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 )}
                                             </div>
                                         </th>
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
-                                            <div className="flex items-center space-x-1">
-                                                <span>CUSTOMER EMAIL</span>
-                                                {sortColumn === 'customerEmail' && (
-                                                    <svg 
-                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                                                        fill="none" 
-                                                        stroke="currentColor" 
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                        </th>
+                                        
                                         <th scope="col" className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 whitespace-nowrap">
                                             Actions
                                         </th>
@@ -508,6 +571,9 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                         {request.srNumber}
                                                     </td>
                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                        {request.customerEmail}
+                                                    </td>
+                                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                         {request.agency}
                                                     </td>
                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
@@ -520,11 +586,12 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                         </span>
                                                     </td>
                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                        {attachments.length}
+                                                        {request.errorMessage}
                                                     </td>
                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                        {request.customerEmail}
+                                                        {attachments.length}
                                                     </td>
+                                                    
                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                         <div className="flex space-x-2">
                                                             {/* <button
@@ -534,7 +601,7 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                                 Update Status
                                                             </button> */}
                                                             <button
-                                                                onClick={() => handleViewAttachments(request.id)}
+                                                                onClick={() => setIsAttachmentModalOpen(true)}
                                                                 className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm font-medium"
                                                             >
                                                                 View Attachments
@@ -628,6 +695,19 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                 </div>
             </div>
         </div>
+
+        {
+            isAttachmentModalOpen && (
+                <AttachmentPopUp
+                    isOpen={true}
+                    onClose={() => setIsAttachmentModalOpen(false)}
+                    onSubmit={() => {}}
+                    defaultTab="Attachments"
+                />
+            )
+        }
+        </div>
+        
     );
 }
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'; // adjust path as needed
 import config from '../../common/config';
 import toLocalISOString from '../../common/to-local-iso-string';
 import MakeComment from './MakeComment';
+import { mockBatches, mockServiceRequests, mockAttachments, type Attachment } from '../data/mockData';
 
 interface AttachmentAction{
     id: number;
@@ -14,14 +15,14 @@ interface AttachmentAction{
     comment: string;
 }
 
-interface Attachment {
-    id: number;
-    srNumber: string;
-    status: number;
-    description: string;
-    attachmentCount: number;
-    action: AttachmentAction;
-}
+// interface Attachment {
+//     id: number;
+//     srNumber: string;
+//     status: number;
+//     description: string;
+//     attachmentCount: number;
+//     action: AttachmentAction;
+// }
 
 type DateRangeOption = 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 6 months' | 'Last 1 year';
 
@@ -135,6 +136,34 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
         setPage(0); // Reset to first page when changing date range
     };
 
+    const handleViewDetails = (id: string) => {
+        // Implement the logic to view details of a batch
+        console.log(`View details for batch: ${id}`);
+    };
+
+    const formatDate = (dateStr: string): string => {
+        const date = new Date(dateStr);
+        return date.toLocaleString();
+    };
+
+    useEffect(() => {
+        // Simulate API call with mock data
+        setIsLoading(true);
+        try {
+            // Filter Attachments based on search term
+            const filteredAttachments = mockAttachments.filter(attachment => 
+                attachment.id.toString().includes(searchDate.toLowerCase()) ||
+                attachment.attachmentName.toLowerCase().includes(searchDate.toLowerCase())
+            );
+            setAttachments(filteredAttachments);
+            setError(null);
+        } catch (err) {
+            setError('Failed to fetch Attachments');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [searchDate, dateRange, page, rowsPerPage]);
+
     const [comments, setComments] = React.useState<string>('');
 
     const isViewMode = viewComment != null;
@@ -149,7 +178,7 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
 
     const handleSelectAll = () => {
       setSelectAll(!selectAll);
-      setSelectedRows(new Set(attachments.map(batch => batch.id)));
+      setSelectedRows(new Set(attachments.map(attachment => attachment.id.toString())));
     };
 
   const handleCheckboxChange = (id: string) => {
@@ -163,7 +192,7 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
   };
 
     const onPopupSubmit = (rawComment?: string) => {
-      // Batch update
+      // attachment update
       // if (!selectedProcess && selectedRows.size > 0) {
       //   Array.from(selectedRows).forEach((id) => {
       //     const proc = processes.find((p) => p.dataID === id);
@@ -210,7 +239,7 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
               <div className="sticky top-0 z-10 bg-white">
                   <div className="border-b">
                       <div className="px-4 sm:px-6 py-4">
-                          <h1 className="text-lg sm:text-xl font-medium">Batch Monitoring</h1>
+                          <h1 className="text-lg sm:text-xl font-medium">Attachment Monitoring</h1>
                       </div>
                   </div>
 
@@ -254,22 +283,25 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                           )}
                       </button>
                       <button
-                          // Overview tab is greyed out and disabled
-                          onClick={() => handleTabChange('Attachments')}
-                          className={
-                          'py-4 px-2 relative text-gray-400 cursor-not-allowed bg-gray-100'
-                          }
-                      >
-                          Attachments
-                          {/* No underline for Overview since it's disabled */}
-                      </button>
+                            onClick={() => handleTabChange('Attachments')}
+                            className={`py-4 px-2 relative ${
+                            activeTab === 'Attachments'
+                                ? 'text-[#1a4f82] font-medium'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            Attachments
+                            {activeTab === 'Attachments' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
+                            )}
+                        </button>
                       </div>
                   </div>
 
                   {/* Search and Controls */}
                   <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white space-y-4 sm:space-y-0">
                   <div className="flex items-center space-x-4 w-full">
-                      {/* {renderBatchFilter()} */}
+                      {/* {renderAttachmentFilter()} */}
                       <div className="flex items-center space-x-2">
                       <span className="text-sm whitespace-nowrap">Search</span>
                       <div className="relative flex-1 sm:flex-none">
@@ -300,7 +332,7 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                           <div className="flex items-center ">
                           <button
                               onClick={() => {
-                              //setSelectedProcess(null); // batch mode, not single process
+                              //setSelectedProcess(null); // Attachment mode, not single process
                               //setIsStatusModalOpen(true);
                               }}
                               className="bg-[#1a4f82] hover:bg-[#15406c] px-3 py-1 rounded-md text-white text-sm font-medium flex items-center"
@@ -412,8 +444,8 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                       </th>
                                       <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
-                                              <span>DESCRIPTION</span>
-                                              {sortColumn === 'description' && (
+                                              <span>SR NUMBER</span>
+                                              {sortColumn === 'caseId' && (
                                                   <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                                       fill="none" 
@@ -427,7 +459,23 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                       </th>
                                       <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
-                                              <span>STATUS</span>
+                                              <span>NRIC</span>
+                                              {sortColumn === 'nric' && (
+                                                  <svg 
+                                                      className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                      fill="none" 
+                                                      stroke="currentColor" 
+                                                      viewBox="0 0 24 24"
+                                                  >
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                  </svg>
+                                              )}
+                                          </div>
+                                      </th>
+
+                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                          <div className="flex items-center space-x-1">
+                                              <span>UPLOAD DATE</span>
                                               {sortColumn === 'status' && (
                                                   <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
@@ -442,7 +490,71 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                       </th>
                                       <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
-                                              <span>CREATED DATE</span>
+                                              <span>PICKUP DATE</span>
+                                              {sortColumn === 'status' && (
+                                                  <svg 
+                                                      className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                      fill="none" 
+                                                      stroke="currentColor" 
+                                                      viewBox="0 0 24 24"
+                                                  >
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                  </svg>
+                                              )}
+                                          </div>
+                                      </th>
+
+                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                          <div className="flex items-center space-x-1">
+                                              <span>NAME</span>
+                                              {sortColumn === 'attachmentName' && (
+                                                  <svg 
+                                                      className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                      fill="none" 
+                                                      stroke="currentColor" 
+                                                      viewBox="0 0 24 24"
+                                                  >
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                  </svg>
+                                              )}
+                                          </div>
+                                      </th>
+                                      
+                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                            <div className="flex items-center space-x-1">
+                                                <span>STATUS</span>
+                                                {sortColumn === 'status' && (
+                                                    <svg 
+                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                            <div className="flex items-center space-x-1">
+                                                <span>ERROR MESSAGE</span>
+                                                {sortColumn === 'errorMessage' && (
+                                                    <svg 
+                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+
+                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                          <div className="flex items-center space-x-1">
+                                              <span>ACTIONS</span>
                                               {sortColumn === 'creationDate' && (
                                                   <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
@@ -455,24 +567,8 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                               )}
                                           </div>
                                       </th>
-                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
-                                          <div className="flex items-center space-x-1">
-                                              <span>SR COUNT</span>
-                                              {sortColumn === 'srCount' && (
-                                                  <svg 
-                                                      className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                                                      fill="none" 
-                                                      stroke="currentColor" 
-                                                      viewBox="0 0 24 24"
-                                                  >
-                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                  </svg>
-                                              )}
-                                          </div>
-                                      </th>
-                                      <th scope="col" className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 whitespace-nowrap">
-                                          Actions
-                                      </th>
+                                      
+                                      
                                   </tr>
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-200">
@@ -502,8 +598,8 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                               <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                   <input
                                                       type="checkbox"
-                                                      checked={selectedRows.has(attachment.id)}
-                                                      onChange={() => handleCheckboxChange(attachment.id)}
+                                                      checked={selectedRows.has(attachment.id.toString())}
+                                                      onChange={() => handleCheckboxChange(attachment.id.toString())}
                                                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                                   />
                                               </td>
@@ -511,30 +607,62 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                                   {attachment.id}
                                               </td>
                                               <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                  {attachment.description}
+                                                  {attachment.caseId}
                                               </td>
                                               <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                  {attachment.nric}
+                                              </td>
+                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                  {formatDate(attachment.uploadDate)}
+                                              </td>
+                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                  {formatDate(attachment.uploadDate)}
+                                              </td>
+                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                  {attachment.attachmentName}
+                                              </td>
+                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusStyle(attachment.status).bgColor} ${getStatusStyle(attachment.status).textColor}`}>
+                                                        <span className={`w-2 h-2 rounded-full ${getStatusStyle(attachment.status).dotColor} mr-1.5`}></span>
+                                                        {attachment.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                    {attachment.errorMessage}
+                                                </td>
+                                              {/* <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusStyle(attachment.status).bgColor} ${getStatusStyle(attachment.status).textColor}`}>
                                                       <span className={`w-2 h-2 rounded-full ${getStatusStyle(attachment.status).dotColor} mr-1.5`}></span>
                                                       {attachment.status}
                                                   </span>
-                                              </td>
-                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                  {formatDate(attachment.creationDate)}
-                                              </td>
-                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                              </td> */}
+                                              
+                                              {/* <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                   {attachment.srCount}
-                                              </td>
+                                              </td> */}
                                               <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                   <div className="flex space-x-2">
                                                       <button
-                                                          onClick={() => handleViewDetails(attachment.id)}
-                                                          className="text-blue-600 hover:text-blue-900 font-medium"
+                                                          onClick={() => handleViewDetails(attachment.id.toString())}
+                                                          className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm"
                                                       >
-                                                          View Details
+                                                          Update Status
                                                       </button>
                                                   </div>
-                                              </td>
+                                                </td>
+                                                {/* if there’s no action yet and status is FAIL, show Update button */}
+                              {/* {(!process.action || !process.action.insertDate) && process.status.toUpperCase() === 'FAIL' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedProcess(process);
+                                    setIsStatusModalOpen(true);
+                                  }}
+                                  className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm font-medium"
+                                >
+                                  Update Status
+                                </button>
+                              )} */}
+                                              
                                           </tr>
                                       ))
                                   )}
@@ -991,3 +1119,13 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
   
 
 }
+  //     )}
+  //     </div>
+      
+  // );
+
+  
+
+// }
+// }
+// }

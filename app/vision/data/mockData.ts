@@ -21,17 +21,30 @@ export interface ServiceRequest {
     customerEmail: string;
     attachmentCount: number;
     status: string;
+    errorMessage: string;
+}
+
+interface AttachmentAction{
+    id: number;
+    attachId: number;
+    srNumber: string;
+    status: number;
+    comment: string;
 }
 
 export interface Attachment {
     id: number;
     attachmentId: number;
     caseId: number;
+    nric: string;
     attachmentName: string;
     checksum: string;
     uploadDate: string;
     fileSize: number;
     fileType: string;
+    status: string;
+    errorMessage: string;
+    action: AttachmentAction;
 }
 
 // Mock data
@@ -41,15 +54,15 @@ export const mockBatches: Batch[] = [
         creationDate: "2024-03-15T10:00:00",
         srCount: 3,
         status: "COMPLETED",
-        description: "Q1 2024 Batch Processing",
+        description: "-",
         batchFolderPath: "/batches/BATCH001"
     },
     {
         id: "BATCH002",
         creationDate: "2024-03-16T14:30:00",
         srCount: 5,
-        status: "IN_PROGRESS",
-        description: "March 2024 Service Requests",
+        status: "FAILED",
+        description: "Number of SR folders does not match with XML file",
         batchFolderPath: "/batches/BATCH002"
     },
     {
@@ -57,7 +70,7 @@ export const mockBatches: Batch[] = [
         creationDate: "2024-03-17T09:15:00",
         srCount: 2,
         status: "PENDING",
-        description: "Emergency Processing Batch",
+        description: "XML file failed to parse. Might be corrupted or invalid format",
         batchFolderPath: "/batches/BATCH003"
     }
 ];
@@ -76,7 +89,8 @@ export const mockServiceRequests: ServiceRequest[] = [
         reqEmail: "john.doe@example.com",
         customerEmail: "customer1@example.com",
         attachmentCount: 2,
-        status: "COMPLETED"
+        status: "COMPLETED",
+        errorMessage: "XML file failed to parse. Might be corrupted or invalid format"
     },
     {
         id: 2,
@@ -91,7 +105,8 @@ export const mockServiceRequests: ServiceRequest[] = [
         reqEmail: "jane.smith@example.com",
         customerEmail: "customer2@example.com",
         attachmentCount: 1,
-        status: "IN_PROGRESS"
+        status: "IN_PROGRESS",
+        errorMessage: "Number of SR folders does not match with XML file"
     },
     {
         id: 3,
@@ -106,7 +121,8 @@ export const mockServiceRequests: ServiceRequest[] = [
         reqEmail: "mike.johnson@example.com",
         customerEmail: "customer3@example.com",
         attachmentCount: 3,
-        status: "PENDING"
+        status: "PENDING",
+        errorMessage: "Number of SR folders does not match with XML file"
     }
 ];
 
@@ -115,30 +131,60 @@ export const mockAttachments: Attachment[] = [
         id: 1,
         attachmentId: 2001,
         caseId: 1001,
+        nric: "S1234567A",
         attachmentName: "document1.pdf",
         checksum: "abc123",
         uploadDate: "2024-03-15T10:35:00",
         fileSize: 1024,
-        fileType: "application/pdf"
+        fileType: "application/pdf",
+        status: "COMPLETED",
+        errorMessage: "-",
+        action: {
+            id: 1,
+            attachId: 2001,
+            srNumber: "SR2024001",
+            status: 1,
+            comment: ""
+        }
     },
     {
         id: 2,
         attachmentId: 2002,
         caseId: 1001,
+        nric: "S1234599C",
         attachmentName: "image1.jpg",
         checksum: "def456",
         uploadDate: "2024-03-15T10:36:00",
         fileSize: 2048,
-        fileType: "image/jpeg"
+        fileType: "image/jpeg",
+        status: "PENDING",
+        errorMessage: "XML file failed to parse. Might be corrupted or invalid format",
+        action:{
+            id: 2,
+            attachId: 2001,
+            srNumber: "SR2024001",
+            status: 0,
+            comment: "XML file failed to parse. Might be corrupted or invalid format"
+        }
     },
     {
         id: 3,
         attachmentId: 2003,
         caseId: 1002,
+        nric: "S1234500A",
         attachmentName: "document2.pdf",
         checksum: "ghi789",
         uploadDate: "2024-03-15T11:05:00",
         fileSize: 1536,
-        fileType: "application/pdf"
+        fileType: "application/pdf",
+        status: "FAILED",
+        errorMessage: "XML file failed to parse. Might be corrupted or invalid format",
+        action:{
+            id: 3,
+            attachId: 2003,
+            srNumber: "SR2024001",
+            status: 1,
+            comment: "XML file failed to parse. Might be corrupted or invalid format"
+        }
     }
 ]; 

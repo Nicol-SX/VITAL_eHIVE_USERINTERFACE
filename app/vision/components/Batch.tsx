@@ -146,7 +146,7 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
 
     const handleDateRangeChange = (range: DateRangeOption) => {
         setSelectedDateRange(range);
-        setPage(0); // Reset to first page when changing date range
+        // setPage(0); // Reset to first page when changing date range
     };
 
     useEffect(() => {
@@ -263,14 +263,17 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                             )}
                         </button>
                         <button
-                            // Overview tab is greyed out and disabled
                             onClick={() => handleTabChange('Attachments')}
-                            className={
-                            'py-4 px-2 relative text-gray-400 cursor-not-allowed bg-gray-100'
-                            }
+                            className={`py-4 px-2 relative ${
+                            activeTab === 'Attachments'
+                                ? 'text-[#1a4f82] font-medium'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
                         >
                             Attachments
-                            {/* No underline for Overview since it's disabled */}
+                            {activeTab === 'Attachments' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a4f82]"></div>
+                            )}
                         </button>
                         </div>
                     </div>
@@ -419,39 +422,10 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                                 )}
                                             </div>
                                         </th>
+
                                         <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
-                                                <span>DESCRIPTION</span>
-                                                {sortColumn === 'description' && (
-                                                    <svg 
-                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                                                        fill="none" 
-                                                        stroke="currentColor" 
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                        </th>
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
-                                            <div className="flex items-center space-x-1">
-                                                <span>STATUS</span>
-                                                {sortColumn === 'status' && (
-                                                    <svg 
-                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                                                        fill="none" 
-                                                        stroke="currentColor" 
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                        </th>
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
-                                            <div className="flex items-center space-x-1">
-                                                <span>CREATED DATE</span>
+                                                <span>CREATION DATE</span>
                                                 {sortColumn === 'creationDate' && (
                                                     <svg 
                                                         className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
@@ -464,6 +438,23 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                                 )}
                                             </div>
                                         </th>
+
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                            <div className="flex items-center space-x-1">
+                                                <span>PICKUP DATE</span>
+                                                {sortColumn === 'pickupDate' && (
+                                                    <svg 
+                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+
                                         <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>SR COUNT</span>
@@ -479,6 +470,41 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                                 )}
                                             </div>
                                         </th>
+
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                            <div className="flex items-center space-x-1">
+                                                <span>STATUS</span>
+                                                {sortColumn === 'status' && (
+                                                    <svg 
+                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                            <div className="flex items-center space-x-1">
+                                                <span>ERROR MESSAGE</span>
+                                                {sortColumn === 'errorMessage' && (
+                                                    <svg 
+                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+                                        
+                                        
+                                        
                                         <th scope="col" className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 whitespace-nowrap">
                                             Actions
                                         </th>
@@ -520,7 +546,13 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                                     {batch.id}
                                                 </td>
                                                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                    {batch.description}
+                                                    {formatDate(batch.creationDate)}
+                                                </td>
+                                                <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                    {formatDate(batch.creationDate)}  {/* Pick up date is same as creation date */}
+                                                </td>
+                                                <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                    {batch.srCount}
                                                 </td>
                                                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusStyle(batch.status).bgColor} ${getStatusStyle(batch.status).textColor}`}>
@@ -529,18 +561,18 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                                     </span>
                                                 </td>
                                                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                    {formatDate(batch.creationDate)}
+                                                    {batch.description}
                                                 </td>
-                                                <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                    {batch.srCount}
-                                                </td>
+                                                
+                                                
+                                                
                                                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                     <div className="flex space-x-2">
                                                         <button
                                                             onClick={() => handleViewDetails(batch.id)}
                                                             className="text-blue-600 hover:text-blue-900 font-medium"
                                                         >
-                                                            View Details
+                                                            View SR
                                                         </button>
                                                     </div>
                                                 </td>
