@@ -9,6 +9,7 @@ interface UpdateAttachmentStatusProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit?: (rawComment?: string) => void;
+  attachmentId: number;
 }
 
 export default function UpdateAttachmentStatus({
@@ -18,7 +19,7 @@ export default function UpdateAttachmentStatus({
   onSubmit,
 }: UpdateAttachmentStatusProps) {
   // Local state, only used in EDIT MODE:
-  //const [selectedStatus, setSelectedStatus] = React.useState<'Reviewed' | 'Others' | ''>('');
+  //const [selectedStatus, setSelecfedStatus] = React.useState<'Reviewed' | 'Others' | ''>('');
   const [selectedStatus, setSelectedStatus] = React.useState<'Reviewed' | 'Others' | ''>('');
   const [comments, setComments] = React.useState<string>('');
 
@@ -31,10 +32,6 @@ export default function UpdateAttachmentStatus({
     onSubmit(comments.trim());
     setComments('');
   };
-
-  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
-  const [isViewCommentModalOpen, setIsViewCommentModalOpen] = useState(false);
-  const [isUpdateStatusModalOpen, setIsUpdateStatusModalOpen] = useState(false);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center pt-60 z-[1003] overflow-auto">
@@ -63,7 +60,8 @@ export default function UpdateAttachmentStatus({
           // EDIT 
           <>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Status Pop-Up</h2>
+              {/* <h2 className="text-xl font-semibold">Status Pop-Up</h2> */}
+              <h3 className="font-medium mb-2">Select Status</h3>
               <button
                 onClick={onClose}
                 className="text-gray-500 hover:text-gray-700 text-lg"
@@ -74,7 +72,7 @@ export default function UpdateAttachmentStatus({
             </div>
 
             <div className="mb-4">
-              <h3 className="font-medium mb-2">Select Status</h3>
+              {/* <h3 className="font-medium mb-2">Select Status</h3> */}
               <div className="space-y-2">
                 <label className="flex items-center space-x-2">
                   <input

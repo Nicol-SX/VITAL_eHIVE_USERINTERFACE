@@ -37,6 +37,9 @@ interface AttachmentProps {
   onSubmit?: (rawComment?: string) => void;
   defaultTab: 'Overview' | 'Batch' | 'Service Requests' | 'Attachments';
   defaultAttachmentId?: string;
+  srId?: string;
+  //srId?: string;
+
 }
 
 
@@ -67,7 +70,7 @@ const getStatusStyle = (status: string): { bgColor: string; textColor: string; d
     }
   };
 
-export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit, defaultTab }: AttachmentProps) {
+export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit, defaultTab, srId}: AttachmentProps) {
     const router = useRouter();
     //const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Service Requests'>(defaultTab || 'Batch');
     const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Service Requests' | 'Attachments'>(defaultTab || 'Attachments');
@@ -95,6 +98,14 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
     const [selectAll, setSelectAll] = useState(false);
     const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
     const [isUpdateStatusModalOpen, setIsUpdateStatusModalOpen] = useState(false);
+    const [selectedServiceRequestId, setSelectedServiceRequestId] = useState<string | null>(null);
+    const [selectedAttachmentId, setSelectedAttachmentId] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (srId) {
+          setSelectedServiceRequestId(srId);
+        }
+      }, [srId]);
 
     const dateRangeOptions = [
         'Last 7 days',
@@ -158,14 +169,21 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
                 attachment.id.toString().includes(searchDate.toLowerCase()) ||
                 attachment.attachmentName.toLowerCase().includes(searchDate.toLowerCase())
             );
-            setAttachments(filteredAttachments);
-            setError(null);
+            if(selectedServiceRequestId !== null){
+                const srAttachments = filteredAttachments.filter(attachment => attachment.srNumber === selectedServiceRequestId);
+                setAttachments(srAttachments);
+                setError(null);
+            }
+            else{   
+                setAttachments(filteredAttachments);
+                setError(null);
+            }
         } catch (err) {
             setError('Failed to fetch Attachments');
         } finally {
             setIsLoading(false);
         }
-    }, [searchDate, dateRange, page, rowsPerPage]);
+    }, [searchDate, dateRange, page, rowsPerPage, selectedServiceRequestId]);
 
     const [comments, setComments] = React.useState<string>('');
 
@@ -280,7 +298,7 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
                       <div className="flex flex-col justify-between items-center h-full w-full">
                         
                           {/* Table Section */}
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-auto w-full">
                   <div className="min-w-full">
                       <div className="overflow-x-auto">
                           <table className="min-w-full divide-y divide-gray-200">
@@ -296,8 +314,8 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
                                       </th>
                                       <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
-                                              <span>BATCH ID</span>
-                                              {sortColumn === 'id' && (
+                                              <span>NRIC</span>
+                                              {sortColumn === 'nric' && (
                                                   <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                                       fill="none" 
@@ -326,8 +344,8 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
                                       </th>
                                       <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
-                                              <span>NRIC</span>
-                                              {sortColumn === 'nric' && (
+                                              <span>BATCH ID</span>
+                                              {sortColumn === 'id' && (
                                                   <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                                       fill="none" 
@@ -339,6 +357,8 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
                                               )}
                                           </div>
                                       </th>
+                                      
+                                      
 
                                       <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
@@ -471,14 +491,16 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
                                                   />
                                               </td>
                                               <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                  {attachment.id}
-                                              </td>
-                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                  {attachment.caseId}
-                                              </td>
-                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                   {attachment.nric}
                                               </td>
+                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                  {attachment.srNumber}
+                                              </td>
+                                              <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                  {attachment.batchId}
+                                              </td>
+                                              
+                                              
                                               <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                   {formatDate(attachment.uploadDate)}
                                               </td>
@@ -507,14 +529,33 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
                                               {/* <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                   {attachment.srCount}
                                               </td> */}
+                                              
                                               <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                   <div className="flex space-x-2">
-                                                      <button
-                                                          onClick={() => setIsUpdateStatusModalOpen(true)}
+                                                    {
+                                                      attachment.status.toUpperCase() === 'FAIL' && (
+                                                        <button
+                                                        onClick={() => {setIsUpdateStatusModalOpen(true);
+                                                            setSelectedAttachmentId(attachment.id);}
+                                                          }
                                                           className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm"
                                                       >
                                                           Update Status
                                                       </button>
+                                                    )}
+
+                                                    { attachment.status.toUpperCase() === 'OTHERS' && (
+                                                        <button
+                                                        onClick={() => {setIsViewCommentModalOpen(true);
+                                                            setSelectedAttachmentId(attachment.id);}
+                                                          }
+                                                          className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm"
+                                                      >
+                                                          View Comment
+                                                        </button>
+                                                    )
+                                                    }
+                                                      
                                                   </div>
                                                 </td>
                                                 {/* if there’s no action yet and status is FAIL, show Update button */}
@@ -638,7 +679,7 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
         />
       )}
 
-      {isViewCommentModalOpen && /*selectedProcess !== null*/ true && (
+      {isViewCommentModalOpen && selectedAttachmentId !== null && (
         <MakeComment
           viewComment='This is a test comment'
           isOpen={true}
@@ -646,16 +687,18 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
             setIsViewCommentModalOpen(false);
           }}
           onSubmit={handleSubmit}
+          attachmentId={selectedAttachmentId}
         />
       )}
 
-{isUpdateStatusModalOpen && /*selectedProcess !== null*/ true && (
+    {isUpdateStatusModalOpen && selectedAttachmentId !== null && (
         <UpdateAttachmentStatus
           isOpen={true}
           onClose={() => {
             setIsUpdateStatusModalOpen(false);
           }}
           onSubmit={handleSubmit}
+          attachmentId={selectedAttachmentId}
         />
       )}
       </div>

@@ -1,6 +1,7 @@
 {
-  "/vision/batch/page": "app/vision/batch/page.js",
-  "/batch/page": "app/batch/page.js",
+  "/page": "app/page.js",
   "/vision/service-requests/page": "app/vision/service-requests/page.js",
-  "/vision/attachments/page": "app/vision/attachments/page.js"
+  "/vision/batch/page": "app/vision/batch/page.js",
+  "/vision/attachments/page": "app/vision/attachments/page.js",
+  "/processes/page": "app/processes/page.js"
 }

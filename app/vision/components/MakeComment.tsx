@@ -3,12 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; // adjust path as needed
 import config from '../../common/config';
 import toLocalISOString from '../../common/to-local-iso-string';
+import { mockAttachments } from '../data/mockData';
 
 interface MakeCommentProps {
   viewComment?: string;
   isOpen: boolean;
   onClose: () => void;
   onSubmit?: (rawComment?: string) => void;
+  attachmentId?: number;
 }
 
 export default function MakeComment({
@@ -16,6 +18,7 @@ export default function MakeComment({
   isOpen,
   onClose,
   onSubmit,
+  attachmentId
 }: MakeCommentProps) {
   // Local state, only used in EDIT MODE:
   //const [selectedStatus, setSelectedStatus] = React.useState<'Reviewed' | 'Others' | ''>('');
@@ -52,7 +55,7 @@ export default function MakeComment({
               </button>
             </div>
             <div className="bg-gray-100 p-4 rounded-md text-gray-800 whitespace-pre-wrap">
-              {viewComment}
+              {mockAttachments.find(attachment => attachment.id === attachmentId)?.action.comment}
             </div>
           </>
         ) : (

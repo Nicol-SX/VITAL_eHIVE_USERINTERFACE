@@ -73,6 +73,7 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
     const [selectAll, setSelectAll] = useState(false);
+    const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
     const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
     //const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
@@ -109,6 +110,8 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
         }
     };
 
+    
+
     const handleSearch = (searchTerm: string) => {
         setSearchDate(searchTerm);
         setPage(0); // Reset to first page when filtering
@@ -135,6 +138,18 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
     };
 
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const batchId = urlParams.get('batchId');
+        if (batchId) {
+          setSelectedBatchId(batchId);
+          console.log('🔍 Setting batchId from URL:', batchId);
+        }
+        else{
+            setSelectedBatchId(null);
+        }
+    }, []);
+
+    useEffect(() => {
         // Simulate API call with mock data
         setIsLoading(true);
         try {
@@ -144,46 +159,45 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                 sr.agency.toLowerCase().includes(searchDate.toLowerCase()) ||
                 sr.customerEmail.toLowerCase().includes(searchDate.toLowerCase())
             );
-            setServiceRequests(filteredServiceRequests);
-            setError(null);
+            if(selectedBatchId !== null){
+                console.log('🔍 Selected batchId:', selectedBatchId);
+                const batchSR = filteredServiceRequests.filter(sr => sr.batchId === selectedBatchId);
+                setServiceRequests(batchSR);
+                setError(null);
+            }
+            else{
+                console.log('🔍 No batchId selected');
+                setServiceRequests(filteredServiceRequests);
+                setError(null);
+            }
+            
+            
         } catch (err) {
             setError('Failed to fetch service requests');
         } finally {
             setIsLoading(false);
         }
-    }, [searchDate, dateRange, page, rowsPerPage]);
+    }, [searchDate, dateRange, page, rowsPerPage, selectedBatchId]);
+
+    // useEffect(() => {
+    //     if (selectedBatchId) {
+    //         fetchServiceRequestsByBatchId(selectedBatchId);
+    //     }
+    // }, [selectedBatchId]);
 
     const handleUpdateStatus = (id: number) => {
         // Implement the logic to update the status of a service request
         console.log(`Updating status for service request with id: ${id}`);
     };
 
-    // const onPopupSubmit = (status: 'Reviewed' | 'Others', rawComment?: string) => {
-    //     // // Batch update
-    //     // if (!selectedProcess && selectedRows.size > 0) {
-    //     //   Array.from(selectedRows).forEach((id) => {
-    //     //     const proc = processes.find((p) => p.dataID === id);
-    //     //     if (proc) {
-    //     //       handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags);
-    //     //     }
-    //     //   });
-    //     //   setSelectedRows(new Set());
-    //     //   setIsStatusModalOpen(false);
-    //     //   return;
-    //     // }
-    //     // // Single row update
-    //     // if (selectedProcess) {
-    //     //   handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags);
-    //     //   setIsStatusModalOpen(false);
-    //     //   setSelectedProcess(null);
-    //     // }
-    //   };
-
-    const handleViewAttachments = (id: number) => {
+    const handleViewAttachments = (id: string) => {
         // Implement the logic to view attachments of a service request
         
         console.log(`Viewing attachments for service request with id: ${id}`);
+        router.push(`/vision/attachments?srId=${id}`);
     };
+
+
 
     return (
         <div>
@@ -404,21 +418,6 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                         </th>
                                         <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
-                                                <span>BATCH ID</span>
-                                                {sortColumn === 'batchId' && (
-                                                    <svg 
-                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
-                                                        fill="none" 
-                                                        stroke="currentColor" 
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                        </th>
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
-                                            <div className="flex items-center space-x-1">
                                                 <span>SR NUMBER</span>
                                                 {sortColumn === 'srNumber' && (
                                                     <svg 
@@ -432,6 +431,22 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 )}
                                             </div>
                                         </th>
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                            <div className="flex items-center space-x-1">
+                                                <span>BATCH ID</span>
+                                                {sortColumn === 'batchId' && (
+                                                    <svg 
+                                                        className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+                                        
 
                                         <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
@@ -565,11 +580,12 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                         />
                                                     </td>
                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
-                                                        {request.batchId}
-                                                    </td>
-                                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                         {request.srNumber}
                                                     </td>
+                                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
+                                                        {request.batchId}
+                                                    </td>
+                                                    
                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                         {request.customerEmail}
                                                     </td>
@@ -600,12 +616,23 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                             >
                                                                 Update Status
                                                             </button> */}
-                                                            <button
+                                                            {/* <button
                                                                 onClick={() => setIsAttachmentModalOpen(true)}
                                                                 className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm font-medium"
                                                             >
                                                                 View Attachments
+                                                            </button> */}
+                                                            <button
+                                                                //onClick={() => handleViewAttachments(request.srNumber)}
+                                                                onClick={() => {
+                                                                    setIsAttachmentModalOpen(true);
+                                                                    setSelectedServiceRequestId(request.srNumber);
+                                                                }}
+                                                                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm font-medium"
+                                                            >
+                                                                View Attachments
                                                             </button>
+                                                            
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -697,12 +724,13 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
         </div>
 
         {
-            isAttachmentModalOpen && (
+            isAttachmentModalOpen && selectedServiceRequestId !== null && (
                 <AttachmentPopUp
                     isOpen={true}
                     onClose={() => setIsAttachmentModalOpen(false)}
                     onSubmit={() => {}}
                     defaultTab="Attachments"
+                    srId={selectedServiceRequestId}
                 />
             )
         }

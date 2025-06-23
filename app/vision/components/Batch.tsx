@@ -185,6 +185,7 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
     const handleViewDetails = (id: string) => {
         // Implement the logic to view details of a batch
         console.log(`View details for batch: ${id}`);
+        router.push(`/vision/service-requests?batchId=${id}`);
     };
 
     const formatDate = (dateStr: string): string => {
@@ -568,12 +569,18 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                                 
                                                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                     <div className="flex space-x-2">
-                                                        <button
+                                                        {
+                                                            batch.status === "FAIL" && (
+                                                                <button
                                                             onClick={() => handleViewDetails(batch.id)}
                                                             className="text-blue-600 hover:text-blue-900 font-medium"
                                                         >
                                                             View SR
-                                                        </button>
+                                                            </button>
+                                                            )
+                                                        }
+                                                            
+                                                        
                                                     </div>
                                                 </td>
                                             </tr>
