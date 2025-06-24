@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // adjust path as needed
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'; // adjust path as needed
 import config from '../../common/config';
 import toLocalISOString from '../../common/to-local-iso-string';
 import MakeComment from './MakeComment';
-import { mockBatches, mockServiceRequests, mockAttachments, type Attachment } from '../data/mockData';
+import { mockBatches, mockServiceRequests, mockAttachments, type Attachment, ServiceRequest } from '../data/mockData';
 import UpdateAttachmentStatus from './UpdateAttachmentStatus';
+import DateRangePicker from './DateRangePicker';
 
 interface AttachmentAction{
     id: number;
@@ -26,7 +27,7 @@ interface AttachmentAction{
 // }
 
 type DateRangeOption = 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 6 months' | 'Last 1 year';
-
+type AttachmentSortableColumn = 'nric' | 'srNumber' | 'batchId' | 'uploadDate'| 'pickupDate' | 'attachmentName' | 'status' | 'errorMessage';
 const VISION_API_BASE_URL = '/vision-api/Vision';
 
 interface AttachmentProps {
@@ -66,8 +67,44 @@ const getStatusStyle = (status: string): { bgColor: string; textColor: string; d
     }
   };
 
+  const sortAttachmentData = (data: Attachment[], currentSortColumn: AttachmentSortableColumn, currentSortDirection: 'asc' | 'desc') => {
+    console.log('🔄 SORTING PROCESS DATA:', { currentSortColumn, currentSortDirection });
+    if(currentSortColumn === 'pickupDate'){
+      return sortPickupDate(data, currentSortColumn, currentSortDirection);
+    }
+    return [...data].sort((a, b) => {
+      const aValue = a[currentSortColumn];
+      const bValue = b[currentSortColumn]; 
+
+      // Handle date fields
+      if (currentSortColumn === 'uploadDate') {
+        const dateA = new Date(aValue || '').getTime();
+        const dateB = new Date(bValue || '').getTime();
+        return currentSortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+
+      // Handle string fields
+      const strA = String(aValue || '').toLowerCase();
+      const strB = String(bValue || '').toLowerCase();
+      return currentSortDirection === 'asc' 
+        ? strA.localeCompare(strB)
+        : strB.localeCompare(strA);
+    });
+  };
+
+  const sortPickupDate = (data: Attachment[], currentSortColumn: string, currentSortDirection: 'asc' | 'desc') => { 
+    console.log('🔄 SORTING PICKUP DATE:', { currentSortColumn, currentSortDirection });
+    return [...data].sort((a, b) => {
+      const aValue = a.uploadDate;   
+      const bValue = b.uploadDate;
+      return currentSortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+    });
+  }
+
 export default function Attachment({ viewComment, isOpen, onClose, onSubmit, defaultTab }: AttachmentProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
     //const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Service Requests'>(defaultTab || 'Batch');
     const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Service Requests' | 'Attachments'>(defaultTab || 'Attachments');
     const [page, setPage] = useState(0);
@@ -87,12 +124,15 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
     const [isUpdateStatusModalOpen, setIsUpdateStatusModalOpen] = useState(false);
 
 
-    const [sortColumn, setSortColumn] = useState<string | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [sortColumn, setSortColumn] = useState<AttachmentSortableColumn>('uploadDate');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
     const totalRecords = mockAttachments.length;
     const totalPages = Math.ceil(totalRecords / rowsPerPage);
     const [selectAll, setSelectAll] = useState(false);
     const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
+    const [startDate, setStartDate] = useState<string | null>(null);
+    const [endDate, setEndDate] = useState<string | null>(null);
 
     const [selectedAttachmentId, setSelectedAttachmentId] = useState<number | null>(null);
 
@@ -134,6 +174,12 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
         setPage(0); // Reset to first page when filtering
     };
 
+    const handleDateRangePicker = ({ startDate, endDate }: { startDate: string | null; endDate: string | null }) => {
+        console.log('DateRangePicker - Selected Dates:', { startDate, endDate });
+        setStartDate(startDate);
+        setEndDate(endDate);
+    };
+
     const handleDateRangeChange = (range: DateRangeOption) => {
         setSelectedDateRange(range);
         setPage(0); // Reset to first page when changing date range
@@ -144,10 +190,50 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
         console.log(`View details for batch: ${id}`);
     };
 
-    const formatDate = (dateStr: string): string => {
-        const date = new Date(dateStr);
-        return date.toLocaleString();
+    function formatDate(dateString: string | null | undefined) {
+        if (!dateString) return '-';
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return '-';
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        // return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+    
+    }
+
+    const normalizeToLocalDate = (dateStr: string): Date => {
+        const d = new Date(dateStr);
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate()); // Local midnight
     };
+
+    // Helper function to compare dates properly
+    const compareDates = (date1: string, date2: string): number => {
+        const d1 = normalizeToLocalDate(date1);
+        const d2 = normalizeToLocalDate(date2);
+        
+        // Set time to midnight for date-only comparison
+        const dateOnly1 = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+        const dateOnly2 = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
+        
+        console.log('Comparing dates:', {
+            original1: date1,
+            original2: date2,
+            parsed1: dateOnly1.toISOString(),
+            parsed2: dateOnly2.toISOString(),
+            result: dateOnly1.getTime() - dateOnly2.getTime()
+        });
+        
+        return dateOnly1.getTime() - dateOnly2.getTime();
+    };
+
+    const handleSort = (column: AttachmentSortableColumn) => {
+        console.log('🔄 HANDLING SORT:', { column, currentSort: sortColumn, currentDirection: sortDirection });
+        if (column === sortColumn) {
+          setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+          setSortColumn(column);
+          setSortDirection('desc');
+        }
+      };
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -158,6 +244,54 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
         }
     }, []);
 
+    const filterAttachmentDate = (attachments: Attachment[], startDate: string, endDate: string) => {  
+        if(startDate !== '' && endDate !== ''){
+            const data = attachments.filter(attachment => {
+                console.log('Filtering attachments by date:', {
+                    attachmentDate: attachment.uploadDate,
+                    startDate: startDate,
+                    endDate: endDate,
+                    result: compareDates(attachment.uploadDate, startDate) >= 0 && compareDates(attachment.uploadDate, endDate) <= 0
+                });
+                return compareDates(attachment.uploadDate, startDate) >= 0 && compareDates(attachment.uploadDate, endDate) <= 0;
+            });
+            console.log('Filtered Attachments Date:', data);
+            return data;
+        }
+        else if (startDate !== '' && endDate === ''){
+            const data = attachments.filter(attachment => {
+                console.log('Filtering attachments by date:', {
+                    attachmentDate: attachment.uploadDate,
+                    startDate: startDate,
+                    endDate: endDate,
+                    result: compareDates(attachment.uploadDate, startDate) >= 0
+                });
+                return compareDates(attachment.uploadDate, startDate) >= 0;
+            });
+            console.log('StartDate:', data);
+            return data;
+        }
+        else if (startDate ==='' && endDate !== ''){
+           const data = attachments.filter(attachment => {
+                console.log('Filtering attachments by date:', {
+                    attachmentDate: attachment.uploadDate,
+                    endDate: endDate,
+                    result: compareDates(attachment.uploadDate, endDate) <= 0
+                });
+                const result = compareDates(attachment.uploadDate, endDate) <= 0;
+                console.log('Result:', result);
+                return result;
+            });
+            console.log('End Date:', data);
+            return data;
+        }
+        else{
+            console.log('No Date Range Selected');
+            return attachments;
+        }
+        //return serviceRequests;
+    }
+
 
     useEffect(() => {
         // Simulate API call with mock data
@@ -166,16 +300,43 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
             // Filter Attachments based on search term
             const filteredAttachments = mockAttachments.filter(attachment => 
                 attachment.id.toString().includes(searchDate.toLowerCase()) ||
+                attachment.srNumber.toLowerCase().includes(searchDate.toLowerCase()) ||
+                attachment.nric.toLowerCase().includes(searchDate.toLowerCase()) ||
+                attachment.batchId.toLowerCase().includes(searchDate.toLowerCase()) ||
+                attachment.uploadDate.toLowerCase().includes(searchDate.toLowerCase()) ||
+                //attachment.pickupDate.toLowerCase().includes(searchDate.toLowerCase()) ||
+                attachment.status.toLowerCase().includes(searchDate.toLowerCase()) ||
+                attachment.errorMessage.toLowerCase().includes(searchDate.toLowerCase()) ||
                 attachment.attachmentName.toLowerCase().includes(searchDate.toLowerCase())
             );
+
             if(selectedServiceRequestId !== null){
+                console.log('Selected Service Request ID:', selectedServiceRequestId);
                 const srAttachments = filteredAttachments.filter(attachment => attachment.srNumber === selectedServiceRequestId);
-                setAttachments(srAttachments);
-                setError(null);
+                if(!(startDate === null && endDate === null)){
+                    const filteredAttachmentsDate = filterAttachmentDate(srAttachments, startDate || '', endDate || '');
+                    console.log('Filtered Attachments Date:', filteredAttachmentsDate);
+                    setAttachments(filteredAttachmentsDate);
+                    setError(null);
+                }
+                else{
+                    setAttachments(srAttachments);
+                    setError(null);
+                }
             }
             else{
-                setAttachments(filteredAttachments);
-                setError(null);
+                console.log('No Service Request ID Selected');
+                if(!(startDate === null && endDate === null)){
+                    const filteredAttachmentsDate = filterAttachmentDate(filteredAttachments, startDate || '', endDate || '');
+                    console.log('Filtered Attachments Date:', filteredAttachmentsDate);
+                    setAttachments(filteredAttachmentsDate);
+                    setError(null);
+                }
+                else{
+                    setAttachments(filteredAttachments);
+                    setError(null);
+                }
+                
             }
             
         } catch (err) {
@@ -183,7 +344,7 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
         } finally {
             setIsLoading(false);
         }
-    }, [searchDate, dateRange, page, rowsPerPage, selectedServiceRequestId]);
+    }, [searchDate, dateRange, page, rowsPerPage, selectedServiceRequestId, startDate, endDate]);
 
     const [comments, setComments] = React.useState<string>('');
 
@@ -211,6 +372,20 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
       }
       setSelectedRows(newSelectedRows);
   };
+
+  // Add a clear filter button when batchId is selected
+    const handleClearServiceRequestFilter = () => {
+        setSelectedServiceRequestId(null);
+        setError(null);
+        
+        // Create new URLSearchParams object from current search params
+        const params = new URLSearchParams(searchParams.toString());
+        // Remove the batchId parameter
+        params.delete('srId');
+        
+        // Navigate to the same path with updated search params
+        router.replace(`${pathname}?${params.toString()}`);
+    };
 
     const onPopupSubmit = (rawComment?: string) => {
       // attachment update
@@ -321,7 +496,7 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                   </div>
 
                   {/* Search and Controls */}
-                  <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white space-y-4 sm:space-y-0">
+                  <div className="pl-4 pr-4 sm:pl-6 sm:pr-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white space-y-4 sm:space-y-0">
                   <div className="flex items-center space-x-4 w-full">
                       {/* {renderAttachmentFilter()} */}
                       <div className="flex items-center space-x-2">
@@ -378,6 +553,8 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                       )}
                       </div>
                       </div>
+                      {/* Date Range From Date to Date */}
+                      <DateRangePicker onDateChange={handleDateRangePicker} />
                   </div>
                   <div className="flex items-center space-x-4 w-full sm:w-auto justify-end">
                       <div className="relative">
@@ -449,7 +626,10 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                           />
                                       </th>
-                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                      <th scope="col" 
+                                      onClick={() => handleSort('nric')}
+                                      
+                                      className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
                                               <span>NRIC</span>
                                               {sortColumn === 'nric' && (
@@ -464,10 +644,12 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                               )}
                                           </div>
                                       </th>
-                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                      <th scope="col" 
+                                      onClick={() => handleSort('srNumber')}
+                                      className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
                                               <span>SR NUMBER</span>
-                                              {sortColumn === 'caseId' && (
+                                              {sortColumn === 'srNumber' && (
                                                   <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                                       fill="none" 
@@ -479,10 +661,12 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                               )}
                                           </div>
                                       </th>
-                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                      <th scope="col" 
+                                      onClick={() => handleSort('batchId')}
+                                      className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
                                               <span>BATCH ID</span>
-                                              {sortColumn === 'id' && (
+                                              {sortColumn === 'batchId' && (
                                                   <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                                       fill="none" 
@@ -497,10 +681,12 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                       
                                       
 
-                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                      <th scope="col" 
+                                      onClick={() => handleSort('uploadDate')}
+                                      className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
                                               <span>UPLOAD DATE</span>
-                                              {sortColumn === 'status' && (
+                                              {sortColumn === 'uploadDate' && (
                                                   <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                                       fill="none" 
@@ -512,10 +698,12 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                               )}
                                           </div>
                                       </th>
-                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                      <th scope="col" 
+                                      onClick={() => handleSort('pickupDate')}
+                                      className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
                                               <span>PICKUP DATE</span>
-                                              {sortColumn === 'status' && (
+                                              {sortColumn === 'pickupDate' && (
                                                   <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                                       fill="none" 
@@ -528,7 +716,9 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                           </div>
                                       </th>
 
-                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                      <th scope="col" 
+                                      onClick={() => handleSort('attachmentName')}
+                                      className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
                                               <span>NAME</span>
                                               {sortColumn === 'attachmentName' && (
@@ -544,7 +734,9 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                           </div>
                                       </th>
                                       
-                                      <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                      <th scope="col" 
+                                      onClick={() => handleSort('status')}
+                                      className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>STATUS</span>
                                                 {sortColumn === 'status' && (
@@ -560,7 +752,9 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                             </div>
                                         </th>
 
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        onClick={() => handleSort('errorMessage')}
+                                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>ERROR MESSAGE</span>
                                                 {sortColumn === 'errorMessage' && (
@@ -579,8 +773,7 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                       <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                           <div className="flex items-center space-x-1">
                                               <span>ACTIONS</span>
-                                              {sortColumn === 'creationDate' && (
-                                                  <svg 
+                                              <svg 
                                                       className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                                       fill="none" 
                                                       stroke="currentColor" 
@@ -588,7 +781,6 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                                   >
                                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                                   </svg>
-                                              )}
                                           </div>
                                       </th>
                                       
@@ -617,7 +809,7 @@ export default function Attachment({ viewComment, isOpen, onClose, onSubmit, def
                                           </td>
                                       </tr>
                                   ) : (
-                                      attachments.map((attachment) => (
+                                      sortAttachmentData(attachments, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((attachment) => (
                                           <tr key={attachment.id} className="hover:bg-gray-50">
                                               <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                   <input

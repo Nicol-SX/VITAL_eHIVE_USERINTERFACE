@@ -155,7 +155,7 @@ export const mockServiceRequests: ServiceRequest[] = [
         reqEmail: "jane.smith@example.com",
         customerEmail: "customer2@example.com",
         attachmentCount: 1,
-        status: "IN_PROGRESS",
+        status: "PENDING",
         errorMessage: "Number of SR folders does not match with XML file"
     },
     {
@@ -187,7 +187,7 @@ export const mockServiceRequests: ServiceRequest[] = [
         reqEmail: "john.doe@example.com",
         customerEmail: "customer1@example.com",
         attachmentCount: 2,
-        status: "COMPLETED",
+        status: "FAIL",
         errorMessage: "XML file failed to parse. Might be corrupted or invalid format"
     },
     {
@@ -203,7 +203,7 @@ export const mockServiceRequests: ServiceRequest[] = [
         reqEmail: "john.doe@example.com",
         customerEmail: "customer1@example.com",
         attachmentCount: 2,
-        status: "COMPLETED",
+        status: "FAIL",
         errorMessage: "XML file failed to parse. Might be corrupted or invalid format"
     },
     {
@@ -251,7 +251,7 @@ export const mockServiceRequests: ServiceRequest[] = [
         reqEmail: "mike.johnson@example.com",
         customerEmail: "customer3@example.com",
         attachmentCount: 3,
-        status: "PENDING",
+        status: "COMPLETED",
         errorMessage: "Number of SR folders does not match with XML file"
     }
 ];

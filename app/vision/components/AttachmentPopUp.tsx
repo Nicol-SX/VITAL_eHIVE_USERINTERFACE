@@ -7,7 +7,7 @@ import toLocalISOString from '../../common/to-local-iso-string';
 import MakeComment from './MakeComment';
 import { mockBatches, mockServiceRequests, mockAttachments, type Attachment } from '../data/mockData';
 import UpdateAttachmentStatus from './UpdateAttachmentStatus';
-
+//import { DateInput } from '@mantine/dates';
 
 interface AttachmentAction{
     id: number;
@@ -93,7 +93,7 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
     const [sortColumn, setSortColumn] = useState<string | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     //const totalRecords = activeTab === 'Batch' ? totalProcesses : totalTransactions;
-    const totalRecords = 70;
+    const totalRecords = attachments.length;
     const totalPages = Math.ceil(totalRecords / rowsPerPage);
     const [selectAll, setSelectAll] = useState(false);
     const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
@@ -245,36 +245,15 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
                     
                     {/*Top*/}
                     <div className="sticky top-0 z-[100] bg-white">
-                      <div className="flex justify-between items-center w-full">
+
+                    <div className="flex justify-between items-center w-full">
                         <div className="flex items-center">
-                          <div className="border-b">
+                        <div className="border-b">
                               <div className="px-6 py-4">
                                   <h1 className="text-xl font-medium">View Attachments</h1>
                               </div>
                           </div>
-
-                          <div className="">
-                            <button className="bg-blue-500 text-white px-4 py-2 rounded-md"
-                            onClick={() => {
-                              setIsCommentModalOpen(true);
-                              //setIsAttachmentModalOpen(false);
-                            }}>
-                              <span className="text-white">Make Comments</span>
-                            </button>
-                          </div>
-
-                          <div className="">
-                            <button className="bg-blue-500 text-white px-4 py-2 rounded-md"
-                            onClick={() => {
-                              setIsViewCommentModalOpen(true);
-                              //setIsAttachmentModalOpen(false);
-                            }}>
-                              <span className="text-white">View Comment</span>
-                            </button>
-                          </div>
                         </div>
-                        
-
                         <div className="h-full">
                             <button
                               onClick={onClose}
@@ -284,6 +263,132 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
                               &times;
                             </button>
                         </div>
+
+                      </div>  
+
+                      <div className="flex justify-between items-center w-full overflow-x-auto">
+                        <div className="flex items-center">
+                          {/* Search and Controls */}
+                  <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white space-y-4 sm:space-y-0">
+                  <div className="flex items-center space-x-4 w-full">
+                      {/* {renderAttachmentFilter()} */}
+                      <div className="flex items-center space-x-2">
+                      <span className="text-sm whitespace-nowrap">Search</span>
+                      <div className="relative flex-1 sm:flex-none">
+                          <input
+                          type="text"
+                          id="search-input"
+                          name="search"
+                          value={searchDate}
+                          onChange={(e) => handleSearch(e.target.value)}
+                          placeholder={`Search ${activeTab.toLowerCase()}...`}
+                          className="border rounded px-3 py-1 text-sm w-full sm:w-64 focus:outline-none focus:border-[#1a4f82] pr-8"
+                          aria-label="Search attachments"
+                          />
+                          {searchDate && (
+                          <button
+                              onClick={() => handleSearch('')}
+                              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                              aria-label="Clear search"
+                          >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                          </button>
+                          )}
+                      </div>
+                      <div className="relative flex items-center">
+                      {selectedRows.size > 0 && (
+                          <div className="flex items-center ">
+                          <button
+                              onClick={() => {
+                              //setSelectedProcess(null); // Attachment mode, not single process
+                              //setIsStatusModalOpen(true);
+                              }}
+                              className="bg-[#1a4f82] hover:bg-[#15406c] px-3 py-1 rounded-md text-white text-sm font-medium flex items-center"
+                          >
+                              Update Status
+                              
+                          </button>
+                          <button
+                              onClick={() => {
+                              setSelectedRows(new Set());
+                              setSelectAll(false);
+                              }}
+                              className="text-gray-400 hover:text-gray-600"
+                              aria-label="Clear selected rows"
+                          >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                              </svg>
+                          </button>
+                          </div>
+                      )}
+                      </div>
+                      </div>
+                      {/* Date Range From Date to Date */}
+                      <div className="flex items-center space-x-2">
+                            <span className="text-sm whitespace-nowrap">Date Range</span>
+                            <input type="date" id="startDate" name="startDate" className="border rounded px-3 py-1 text-sm w-full sm:w-64 focus:outline-none focus:border-[#1a4f82] pr-8" />
+                            <span className="text-sm whitespace-nowrap">to</span>
+                            <input type="date" id="endDate" name="endDate" className="border rounded px-3 py-1 text-sm w-full sm:w-64 focus:outline-none focus:border-[#1a4f82] pr-8" />
+                        </div>
+                  </div>
+                  <div className="flex items-center space-x-4 w-full sm:w-auto justify-end">
+                      <div className="relative">
+                      <button
+                          onClick={() => setShowDateRangeDropdown((prev) => !prev)}
+                          className="flex items-center space-x-2 hover:bg-gray-50 px-3 py-2 rounded-md whitespace-nowrap"
+                      >
+                          <span className="text-sm">{selectedDateRange}</span>
+                          <svg className={`w-4 h-4 transition-transform ${showDateRangeDropdown ? 'transform rotate-180' : ''}`}
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                      </button>
+                      {showDateRangeDropdown && (
+                          <div
+                          className="absolute right-0 mt-2 bg-white rounded-md shadow-lg z-50 border max-h-96 overflow-y-auto min-w-[10rem]"
+                          role="listbox"
+                          aria-label="Date range options"
+                          >
+                          {dateRangeOptions.map((option) => (
+                              <button
+                              key={option}
+                              onClick={() => {
+                                  setSelectedDateRange(option);
+                                  setShowDateRangeDropdown(false);
+                              }}
+                              className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
+                                  selectedDateRange === option ? 'bg-gray-50 text-[#1a4f82]' : 'text-gray-700'
+                              }`}
+                              role="option"
+                              aria-selected={selectedDateRange === option}
+                              >
+                              {option}
+                              </button>
+                          ))}
+                          </div>
+                      )}
+                      </div>
+                      <div className="relative">
+                      <button 
+                          onClick={() => {
+                          //downloadCSV(processes, 'process_table.csv');
+                          }}
+                          className="flex items-center space-x-2 text-sm text-[#1a4f82] hover:bg-blue-50 px-3 py-2 rounded-md whitespace-nowrap"
+                          aria-label="Download CSV"
+                      >
+                          <svg 
+                          className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                          </svg>
+                          <span>Download CSV</span>
+                      </button>
+                      </div>
+                  </div>
+                  </div>
+                        </div>
+                    
 
                       </div>
 
@@ -581,8 +686,8 @@ export default function AttachmentPopUp({ viewComment, isOpen, onClose, onSubmit
               </div>
 
               {/* Pagination Section */}
-              <div className="sticky bottom-0 bg-white border-t border-gray-200">
-                  <div className="flex items-center justify-between px-6 py-4">
+              <div className="sticky bottom-0 bg-white border-t border-gray-200 w-full">
+                  <div className="flex items-center justify-between px-6 py-4 w-full">
                       <div className="flex items-center space-x-4">
                           <span className="text-sm text-gray-700">Rows per page:</span>
                           <select

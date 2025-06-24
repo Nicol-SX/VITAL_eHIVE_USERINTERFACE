@@ -1,8 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { mockBatches, mockServiceRequests } from '../data/mockData';
+import DateRangePicker from './DateRangePicker';
+//import { DateInput } from '@mantine/dates';
+// import { DatePickerInput } from '@mantine/dates';
+// import { createTheme, MantineProvider } from '@mantine/core';
+
 
 interface Batch {
     id: string;
@@ -17,7 +22,7 @@ interface BatchTable{
   id: number;
   batchId: string;
   batchCreationDate: string;
-  batchSRCount: number;
+  srCount: number;
   batchFolderPath: string;
 }
 
@@ -89,28 +94,68 @@ const getStatusStyle = (status: string): { bgColor: string; textColor: string; d
 };
 
 type DateRangeOption = 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 6 months' | 'Last 1 year';
+type BatchSortableColumn = 'id' | 'creationDate' | 'status' | 'description'| 'srCount' | 'pickupDate';
+
+const sortBatchData = (data: Batch[], currentSortColumn: BatchSortableColumn, currentSortDirection: 'asc' | 'desc') => {
+    console.log('🔄 SORTING PROCESS DATA:', { currentSortColumn, currentSortDirection });
+    if(currentSortColumn === 'pickupDate'){
+      return sortPickupDate(data, currentSortColumn, currentSortDirection);
+    }
+    return [...data].sort((a, b) => {
+      const aValue = a[currentSortColumn];
+      const bValue = b[currentSortColumn]; 
+
+      // Handle date fields
+      if (currentSortColumn === 'creationDate') {
+        const dateA = new Date(aValue || '').getTime();
+        const dateB = new Date(bValue || '').getTime();
+        return currentSortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+
+      // Handle string fields
+      const strA = String(aValue || '').toLowerCase();
+      const strB = String(bValue || '').toLowerCase();
+      return currentSortDirection === 'asc' 
+        ? strA.localeCompare(strB)
+        : strB.localeCompare(strA);
+    });
+  };
+
+  const sortPickupDate = (data: Batch[], currentSortColumn: string, currentSortDirection: 'asc' | 'desc') => { 
+    console.log('🔄 SORTING PICKUP DATE:', { currentSortColumn, currentSortDirection });
+    return [...data].sort((a, b) => {
+      const aValue = a.creationDate;   
+      const bValue = b.creationDate;
+      return currentSortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+    });
+  }
 
 export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
     const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Service Requests' | 'Attachments'>(defaultTab || 'Batch');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(50);
     const [searchDate, setSearchDate] = useState('');
     const [dateRange, setDateRange] = useState<DateRangeOption>('Last 7 days');
-    const [selectedBatchId, setSelectedBatchId] = useState<string | undefined>(defaultBatchId);
+    const [selectedBatchId, setSelectedBatchId] = useState<string | null>(defaultBatchId || null);
     const [batches, setBatches] = useState<Batch[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('Last 7 days');
     const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false);
-    const [sortColumn, setSortColumn] = useState<string | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [sortColumn, setSortColumn] = useState<BatchSortableColumn>('creationDate');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
     const [selectAll, setSelectAll] = useState(false);
     const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
+    const [datePickerValue, setDatePickerValue] = useState<[string|null, string | null]>([null, null]);
+    const [startDate, setStartDate] = useState<string | null>(null);
+    const [endDate, setEndDate] = useState<string | null>(null);
+
     const totalRecords = mockBatches.length;
     const totalPages = Math.ceil(totalRecords / rowsPerPage);
-
     const dateRangeOptions = [
         'Last 7 days',
         'Last 30 days',
@@ -149,6 +194,75 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
         // setPage(0); // Reset to first page when changing date range
     };
 
+    // Date Range Picker
+    const handleDateRangePicker = ({ startDate, endDate }: { startDate: string | null; endDate: string | null }) => {
+        console.log('DateRangePicker - Selected Dates:', { startDate, endDate });
+        setStartDate(startDate);
+        setEndDate(endDate);
+    };
+
+   
+
+    function formatDate(dateString: string | null | undefined) {
+        if (!dateString) return '-';
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return '-';
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        // return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+    
+    }
+
+
+      
+
+    function updateFormatDate(dateString: string | null | undefined) {
+        if (!dateString) return '-';
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return '-';
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+
+      const formatDateOnly = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    };
+
+    const normalizeToLocalDate = (dateStr: string): Date => {
+        const d = new Date(dateStr);
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate()); // Local midnight
+    };
+    // Helper function to compare dates properly
+    const compareDates = (date1: string, date2: string): number => {
+        const d1 = normalizeToLocalDate(date1);
+        const d2 = normalizeToLocalDate(date2);
+        
+        // Set time to midnight for date-only comparison
+        const dateOnly1 = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate()); // Local midnight
+        const dateOnly2 = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate()); // Local midnight
+        
+        console.log('Comparing dates:', {
+            original1: date1,
+            original2: date2,
+            parsed1: dateOnly1.toISOString(),
+            parsed2: dateOnly2.toISOString(),
+            result: dateOnly1.getTime() - dateOnly2.getTime()
+        });
+        
+        return dateOnly1.getTime() - dateOnly2.getTime();
+    };
+
+    const handleSort = (column: BatchSortableColumn) => {
+        console.log('🔄 HANDLING SORT:', { column, currentSort: sortColumn, currentDirection: sortDirection });
+        if (column === sortColumn) {
+          setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+          setSortColumn(column);
+          setSortDirection('desc');
+        }
+      };
+
     useEffect(() => {
         // Simulate API call with mock data
         setIsLoading(true);
@@ -158,14 +272,45 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                 batch.id.toLowerCase().includes(searchDate.toLowerCase()) ||
                 batch.description.toLowerCase().includes(searchDate.toLowerCase())
             );
-            setBatches(filteredBatches);
-            setError(null);
+            
+            if (startDate !== null && endDate === null){
+                const filteredData = filteredBatches.filter(batch => 
+                    compareDates(batch.creationDate, startDate) >= 0
+                );
+                setBatches(filteredData);
+                console.log('Start Date Only:', filteredData);
+                setError(null);
+            }
+            else if (startDate === null && endDate !== null) {
+                const filteredData = filteredBatches.filter(batch => 
+                    compareDates(batch.creationDate, endDate) <= 0
+                );
+                setBatches(filteredData);
+                console.log('End Date Only:', filteredData);
+                setError(null);
+            }
+            else if (startDate !== null && endDate !== null) {
+                const filteredData = filteredBatches.filter(batch => 
+                    compareDates(batch.creationDate, startDate) >= 0 && 
+                    compareDates(batch.creationDate, endDate) <= 0
+                );
+                setBatches(filteredData);
+                console.log('Start Date and End Date:', filteredData);
+                setError(null);
+            }
+            else{
+                setBatches(filteredBatches);
+                setError(null);
+                console.log('No Date Range:', filteredBatches);
+            }
+            
         } catch (err) {
             setError('Failed to fetch batches');
         } finally {
             setIsLoading(false);
         }
-    }, [searchDate, dateRange, page, rowsPerPage]);
+    }, [searchDate, dateRange, page, rowsPerPage, startDate, endDate]);
+
 
     const handleSelectAll = () => {
         setSelectAll(!selectAll);
@@ -188,12 +333,27 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
         router.push(`/vision/service-requests?batchId=${id}`);
     };
 
-    const formatDate = (dateStr: string): string => {
-        const date = new Date(dateStr);
-        return date.toLocaleString();
+    // Add a clear filter button when batchId is selected
+    const handleClearBatchFilter = () => {
+        setSelectedBatchId(null);
+        setError(null);
+        
+        // Create new URLSearchParams object from current search params
+        const params = new URLSearchParams(searchParams.toString());
+        // Remove the batchId parameter
+        params.delete('batchId');
+        
+        // Navigate to the same path with updated search params
+        router.replace(`${pathname}?${params.toString()}`);
     };
+  
+    
+      
 
     return (
+        
+            
+        
         <div className="flex h-screen w-screen">
             {/* Sidebar - Fixed on left */}
             <div className="w-24 bg-[#1a4f82] text-white sticky top-0 left-0 h-screen z-[1000]">
@@ -337,6 +497,11 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                         )}
                         </div>
                         </div>
+                        
+                        {/* Date Range From Date to Date */}
+
+                        <DateRangePicker onDateChange={handleDateRangePicker} />
+                        
                     </div>
                     <div className="flex items-center space-x-4 w-full sm:w-auto justify-end">
                         <div className="relative">
@@ -408,7 +573,11 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                             />
                                         </th>
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                                        onClick={() => handleSort('id')}
+                                        >
+
                                             <div className="flex items-center space-x-1">
                                                 <span>BATCH ID</span>
                                                 {sortColumn === 'id' && (
@@ -424,7 +593,10 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                             </div>
                                         </th>
 
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                                        onClick={() => handleSort('creationDate')}
+                                        >
                                             <div className="flex items-center space-x-1">
                                                 <span>CREATION DATE</span>
                                                 {sortColumn === 'creationDate' && (
@@ -440,7 +612,10 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                             </div>
                                         </th>
 
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                                        onClick={() => handleSort('pickupDate')}
+                                        >
                                             <div className="flex items-center space-x-1">
                                                 <span>PICKUP DATE</span>
                                                 {sortColumn === 'pickupDate' && (
@@ -456,7 +631,9 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                             </div>
                                         </th>
 
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                                        onClick={() => handleSort('srCount')}
+                                        >
                                             <div className="flex items-center space-x-1">
                                                 <span>SR COUNT</span>
                                                 {sortColumn === 'srCount' && (
@@ -472,7 +649,9 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                             </div>
                                         </th>
 
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                                        onClick={() => handleSort('status')}
+                                        >
                                             <div className="flex items-center space-x-1">
                                                 <span>STATUS</span>
                                                 {sortColumn === 'status' && (
@@ -488,10 +667,12 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                             </div>
                                         </th>
 
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                                        onClick={() => handleSort('description')}
+                                        >
                                             <div className="flex items-center space-x-1">
                                                 <span>ERROR MESSAGE</span>
-                                                {sortColumn === 'errorMessage' && (
+                                                {sortColumn === 'description' && (
                                                     <svg 
                                                         className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
                                                         fill="none" 
@@ -533,7 +714,7 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                             </td>
                                         </tr>
                                     ) : (
-                                        batches.map((batch) => (
+                                        sortBatchData(batches, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage ).map((batch) => (
                                             <tr key={batch.id} className="hover:bg-gray-50">
                                                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap border border-gray-200">
                                                     <input
@@ -584,7 +765,7 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                                                     </div>
                                                 </td>
                                             </tr>
-                                        ))
+                                    ))
                                     )}
                                 </tbody>
                             </table>
@@ -669,5 +850,6 @@ export default function Batch({ defaultTab, defaultBatchId }: BatchProps) {
                 </div>
             </div>
         </div>
+        
     );
 }

@@ -1,25 +1,26 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { mockServiceRequests, mockAttachments } from '../data/mockData';
 import AttachmentPopUp from './AttachmentPopUp';
+import DateRangePicker from './DateRangePicker';
 
 interface ServiceRequest {
-    id: number;
+    id: number; //
     caseId: number;
     batchId: string;
-    agency: string;
+    agency: string; //SORT
     siteAgency: string;
     function: string;
     losTaskCode: string;
-    srNumber: string;
+    srNumber: string; //SORT
     srSubDate: string;
     reqEmail: string;
-    customerEmail: string;
-    attachmentCount: number;
-    status: string;
-    errorMessage: string;
+    customerEmail: string; //SORT
+    attachmentCount: number; //SORT
+    status: string; //SORT
+    errorMessage: string; //SORT
 }
 
 interface ServiceRequestProps {
@@ -55,9 +56,28 @@ const getStatusStyle = (status: string): { bgColor: string; textColor: string; d
 };
 
 type DateRangeOption = 'Last 7 days' | 'Last 30 days' | 'Last 3 months' | 'Last 6 months' | 'Last 1 year';
+type ServiceRequestSortableColumn = 'caseId' | 'batchId' | 'agency' | 'function' | 'srNumber' | 'customerEmail' | 'attachmentCount' | 'status' | 'errorMessage';
+
+const sortServiceRequestData = (data: ServiceRequest[], currentSortColumn: ServiceRequestSortableColumn, currentSortDirection: 'asc' | 'desc') => {
+    console.log('🔄 SORTING PROCESS DATA:', { currentSortColumn, currentSortDirection });
+
+    return [...data].sort((a, b) => {
+      const aValue = a[currentSortColumn];
+      const bValue = b[currentSortColumn]; 
+
+      // Handle string fields
+      const strA = String(aValue || '').toLowerCase();
+      const strB = String(bValue || '').toLowerCase();
+      return currentSortDirection === 'asc' 
+        ? strA.localeCompare(strB)
+        : strB.localeCompare(strA);
+    });
+  };
 
 export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: ServiceRequestProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
     const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Service Requests' | 'Attachments'>(defaultTab || 'Service Requests');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -67,17 +87,21 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
     const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
     const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('Last 7 days');
     const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false);
-    const [sortColumn, setSortColumn] = useState<keyof ServiceRequest | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    
+    const [sortColumn, setSortColumn] = useState<ServiceRequestSortableColumn>('srNumber');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+    
     const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
     const [selectAll, setSelectAll] = useState(false);
     const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
     const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
     //const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
-
+    const [startDate, setStartDate] = useState<string | null>(null);
+    const [endDate, setEndDate] = useState<string | null>(null);
 
     const totalRecords = mockServiceRequests.length;
     const totalPages = Math.ceil(totalRecords / rowsPerPage);
@@ -117,6 +141,52 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
         setPage(0); // Reset to first page when filtering
     };
 
+    const handleDateRangePicker = ({ startDate, endDate }: { startDate: string | null; endDate: string | null }) => {
+        console.log('DateRangePicker - Selected Dates:', { startDate, endDate });
+        setStartDate(startDate);
+        setEndDate(endDate);
+    };
+
+    function formatDate(dateString: string | null | undefined) {
+        if (!dateString) return '-';
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return '-';
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        // return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+    
+    }
+
+    // Helper function to compare dates properly
+    const compareDates = (date1: string, date2: string): number => {
+        const d1 = new Date(date1);
+        const d2 = new Date(date2);
+        
+        // Set time to midnight for date-only comparison
+        const dateOnly1 = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+        const dateOnly2 = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
+        
+        console.log('Comparing dates:', {
+            original1: date1,
+            original2: date2,
+            parsed1: dateOnly1.toISOString(),
+            parsed2: dateOnly2.toISOString(),
+            result: dateOnly1.getTime() - dateOnly2.getTime()
+        });
+        
+        return dateOnly1.getTime() - dateOnly2.getTime();
+    };
+
+    const handleSort = (column: ServiceRequestSortableColumn) => {
+        console.log('🔄 HANDLING SORT:', { column, currentSort: sortColumn, currentDirection: sortDirection });
+        if (column === sortColumn) {
+          setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+          setSortColumn(column);
+          setSortDirection('desc');
+        }
+      };
+
     const handleDateRangeChange = (range: DateRangeOption) => {
         setSelectedDateRange(range);
         setPage(0); // Reset to first page when changing date range
@@ -149,6 +219,34 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
         }
     }, []);
 
+    const filterServiceRequestsDate = (serviceRequests: ServiceRequest[], startDate: string, endDate: string) => {  
+        if(startDate !== '' && endDate !== ''){
+            return serviceRequests.filter(sr => {
+                const result = compareDates(sr.srSubDate, startDate) >= 0 && compareDates(sr.srSubDate, endDate) <= 0;
+                console.log('Result:', result);
+                return result;
+            });
+        }
+        else if (startDate !== '' && endDate === ''){
+            return serviceRequests.filter(sr => {
+                const result = compareDates(sr.srSubDate, startDate) >= 0;
+                console.log('Result:', result);
+                return result;
+            });
+        }
+        else if (startDate ==='' && endDate !== ''){
+            return serviceRequests.filter(sr => {
+                const result = compareDates(sr.srSubDate, endDate) <= 0;
+                console.log('Result:', result);
+                return result;
+            });
+        }
+        else{
+            return serviceRequests;
+        }
+        //return serviceRequests;
+    }
+
     useEffect(() => {
         // Simulate API call with mock data
         setIsLoading(true);
@@ -156,19 +254,43 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
             // Filter service requests based on search term
             const filteredServiceRequests = mockServiceRequests.filter(sr => 
                 sr.srNumber.toLowerCase().includes(searchDate.toLowerCase()) ||
+                sr.batchId.toLowerCase().includes(searchDate.toLowerCase()) ||
                 sr.agency.toLowerCase().includes(searchDate.toLowerCase()) ||
-                sr.customerEmail.toLowerCase().includes(searchDate.toLowerCase())
+                
+                sr.function.toLowerCase().includes(searchDate.toLowerCase()) ||
+                sr.status.toLowerCase().includes(searchDate.toLowerCase()) ||
+                sr.errorMessage.toLowerCase().includes(searchDate.toLowerCase()) ||
+                sr.customerEmail.toLowerCase().includes(searchDate.toLowerCase()) ||
+                sr.attachmentCount.toString().includes(searchDate.toLowerCase())
             );
+
+            
             if(selectedBatchId !== null){
                 console.log('🔍 Selected batchId:', selectedBatchId);
                 const batchSR = filteredServiceRequests.filter(sr => sr.batchId === selectedBatchId);
-                setServiceRequests(batchSR);
-                setError(null);
+                if(!(startDate === null && endDate === null)){
+                    const filteredSR = filterServiceRequestsDate(batchSR, startDate || '', endDate || '');
+                    setServiceRequests(filteredSR);
+                    setError(null);
+                }
+                else{
+                    setServiceRequests(batchSR);
+                    setError(null);
+                }
+               
             }
             else{
                 console.log('🔍 No batchId selected');
-                setServiceRequests(filteredServiceRequests);
-                setError(null);
+                if(startDate || endDate){
+                    
+                    setServiceRequests(filterServiceRequestsDate(filteredServiceRequests, startDate || '', endDate || ''));
+                    setError(null);
+                }
+                else{
+                    setServiceRequests(filteredServiceRequests);
+                    setError(null);
+                }
+                
             }
             
             
@@ -197,6 +319,27 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
         router.push(`/vision/attachments?srId=${id}`);
     };
 
+
+    const handleViewDetails = (id: string) => {
+        // Implement the logic to view details of a batch
+        console.log(`View details for batch: ${id}`);
+        router.push(`/vision/service-requests?batchId=${id}`);
+    };
+
+    // Add a clear filter button when batchId is selected
+    const handleClearBatchFilter = () => {
+        setSelectedBatchId(null);
+        setError(null);
+        
+        // Create new URLSearchParams object from current search params
+        const params = new URLSearchParams(searchParams.toString());
+        // Remove the batchId parameter
+        params.delete('batchId');
+        
+        // Navigate to the same path with updated search params
+        router.replace(`${pathname}?${params.toString()}`);
+    };
+  
 
 
     return (
@@ -345,6 +488,9 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                         )}
                         </div>
                         </div>
+
+                        {/* Date Range From Date to Date */}
+                        <DateRangePicker onDateChange={handleDateRangePicker} />
                     </div>
                     <div className="flex items-center space-x-4 w-full sm:w-auto justify-end">
                         <div className="relative">
@@ -416,7 +562,9 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                             />
                                         </th>
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        onClick={() => handleSort('srNumber')}
+                                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>SR NUMBER</span>
                                                 {sortColumn === 'srNumber' && (
@@ -431,7 +579,9 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 )}
                                             </div>
                                         </th>
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        onClick={() => handleSort('batchId')}
+                                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>BATCH ID</span>
                                                 {sortColumn === 'batchId' && (
@@ -448,7 +598,8 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                         </th>
                                         
 
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap"
+                                            onClick={() => handleSort('customerEmail')}>
                                             <div className="flex items-center space-x-1">
                                                 <span>EMAIL</span>
                                                 {sortColumn === 'customerEmail' && (
@@ -464,7 +615,8 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                             </div>
                                         </th>
 
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" onClick={()=> handleSort('agency')}
+                                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>AGENCY</span>
                                                 {sortColumn === 'agency' && (
@@ -479,7 +631,9 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 )}
                                             </div>
                                         </th>
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        onClick={()=> handleSort('function')}
+                                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>FUNCTION</span>
                                                 {sortColumn === 'function' && (
@@ -494,7 +648,9 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 )}
                                             </div>
                                         </th>
-                                        <th scope="col" className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        onClick={()=> handleSort('status')}
+                                        className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>STATUS</span>
                                                 {sortColumn === 'status' && (
@@ -509,7 +665,9 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 )}
                                             </div>
                                         </th>
-                                        <th scope="col" className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        onClick={()=> handleSort('errorMessage')}
+                                        className="w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>ERROR MESSAGE</span>
                                                 {sortColumn === 'errorMessage' && (
@@ -524,7 +682,9 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                                 )}
                                             </div>
                                         </th>
-                                        <th scope="col" className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
+                                        <th scope="col" 
+                                        onClick={()=> handleSort('attachmentCount')}
+                                        className="w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border border-gray-200 cursor-pointer hover:bg-[#15406c] whitespace-nowrap">
                                             <div className="flex items-center space-x-1">
                                                 <span>ATTACHMENTS</span>
                                                 {sortColumn === 'attachmentCount' && (
@@ -567,7 +727,7 @@ export default function ServiceRequest({ defaultTab, defaultServiceRequestId }: 
                                             </td>
                                         </tr>
                                     ) : (
-                                        serviceRequests.map((request) => {
+                                        sortServiceRequestData(serviceRequests, sortColumn, sortDirection).slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((request) => {
                                             const attachments = mockAttachments.filter(a => a.caseId === request.caseId);
                                             return (
                                                 <tr key={request.id} className="hover:bg-gray-50">

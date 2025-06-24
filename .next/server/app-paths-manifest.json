@@ -1,7 +1,8 @@
 {
-  "/page": "app/page.js",
+  "/not-found": "app/not-found.js",
   "/vision/service-requests/page": "app/vision/service-requests/page.js",
   "/vision/batch/page": "app/vision/batch/page.js",
-  "/vision/attachments/page": "app/vision/attachments/page.js",
-  "/processes/page": "app/processes/page.js"
+  "/batch/page": "app/batch/page.js",
+  "/processes/page": "app/processes/page.js",
+  "/vision/attachments/page": "app/vision/attachments/page.js"
 }
