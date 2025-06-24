@@ -168,7 +168,6 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
   const dateButtonRef = useRef<HTMLButtonElement>(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
-  const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleDateButtonClick = () => {
     if (dateButtonRef.current) {
@@ -218,11 +217,15 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
         ...rows.map(row => row.map(escapeCell).join(','))
       ].join('\r\n');
   
+      // Get current date in YYYY-MM-DD format
+      const currentDate = new Date().toISOString().split('T')[0];
+      const filename = `batch_table_${currentDate}.csv`;
+  
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'batch_table.csv';
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

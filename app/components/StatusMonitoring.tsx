@@ -285,11 +285,15 @@
         const dataLines = rows.map(row => row.map(escapeCell).join(','));
         const csvContent = [headerLine, ...dataLines].join('\r\n');
     
+        // Get current date in YYYY-MM-DD format
+        const currentDate = new Date().toISOString().split('T')[0];
+        const filename = `process_table_${currentDate}.csv`;
+
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'process_table.csv';
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -446,6 +450,7 @@
                 }
               >
                 Overview
+
               </button>
               <button
                 onClick={() => handleTabChange('Batch')}
