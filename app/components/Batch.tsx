@@ -143,7 +143,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
 
   //Processes is Transaction
   const handleViewTransactionDetails = (batchJobId: number) => {
-    router.push(`/processes?batchId=${batchJobId}`);
+    router.push(`/processes?BatchJobId=${batchJobId}`);
   };
 
   const handleSearch = (searchTerm: string) => {

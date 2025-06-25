@@ -1,6 +1,6 @@
 export const getStatusStyle = (status: string): { bgColor: string; textColor: string; dotColor: string } => {
     switch (status.toUpperCase()) {
-      case 'COMPLETED':
+      case 'SUCCESS':
         return { bgColor: 'bg-green-100', textColor: 'text-green-800', dotColor: 'bg-green-600' };
       case 'FAIL':
         return { bgColor: 'bg-red-100', textColor: 'text-red-800', dotColor: 'bg-red-600' };

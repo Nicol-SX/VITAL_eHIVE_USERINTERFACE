@@ -1,82 +1,79 @@
- 'use client';
+'use client';
 
-  import React, { useState, useEffect } from 'react';
-  import { useRouter } from 'next/navigation';
-  import StatusPopup from './StatusPopup'; // adjust path as needed
-  import config from '../common/config';
-  import toLocalISOString from '../common/to-local-iso-string';
-  import { DateRangeOption, dateRangeOptions } from '../types/general';
-  import { Process, ProcessSortableColumn, StatusMonitoringProps, Transaction } from '../types/Process';
-  import { getStatusStyle, getStatusText } from '../utils/Status';
-  import { getDateRangeDays } from '../utils/Date';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import StatusPopup from './StatusPopup';
+import config from '../common/config';
+import toLocalISOString from '../common/to-local-iso-string';
+import { DateRangeOption, dateRangeOptions } from '../types/general';
+import { Process, ProcessSortableColumn, StatusMonitoringProps, Transaction } from '../types/Process';
+import { getStatusStyle, getStatusText } from '../utils/Status';
+import { getDateRangeDays } from '../utils/Date';
 
+function formatDate(dateString: string) {
+  if (!dateString) return '-';
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return '-';
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 
-  function formatDate(dateString: string) {
-    if (!dateString) return '-';
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return '-';
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    // Prepend an apostrophe so Excel won’t re‐parse it as a date:
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const buildProcessUrl = ({
+  baseUrl,
+  page = 0,
+  limit = 50,
+  search = '',
+  dateRange,
+  sortColumn = 'insertDate',
+  sortDirection = 'desc',
+  batchJobId
+}: {
+  baseUrl: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  dateRange: DateRangeOption;
+  sortColumn?: string;
+  sortDirection?: string;
+  batchJobId?: string | null;
+}) => {
+  const url = new URL(`${baseUrl}/HRP/Processes`);
+
+  if (batchJobId) {
+    url.searchParams.set('BatchJobId', batchJobId);
+    return url.toString();
   }
 
+  // Normal mode: full query
+  url.searchParams.set('page', (page + 1).toString());
+  url.searchParams.set('limit', limit.toString());
+  url.searchParams.set('Search', search || '');
+  url.searchParams.set('DaysRange', getDateRangeDays(dateRange).toString());
+  return url.toString();
+};
 
-  const buildProcessUrl = ({
-    baseUrl,
-    page = 0,
-    limit = 50,
-    search = '',
-    dateRange,
-    sortColumn = 'insertDate',
-    sortDirection = 'desc',
-    batchJobId
-  }: {
-    baseUrl: string;
-    page?: number;
-    limit?: number;
-    search?: string;
-    dateRange: DateRangeOption;
-    sortColumn?: string;
-    sortDirection?: string;
-    batchJobId?: string | null;
-  }) => {
-    const url = new URL(`${baseUrl}/HRP/Processes`);
-    url.searchParams.set('page', (page + 1).toString());
-    url.searchParams.set('limit', limit.toString());
-    url.searchParams.set('Search', search || '');
-    url.searchParams.set('DaysRange', getDateRangeDays(dateRange).toString());
-    // url.searchParams.set('sortColumn', sortColumn);
-    // url.searchParams.set('sortDirection', sortDirection);
-    if (batchJobId) url.searchParams.set('BatchJobId', batchJobId);
-    return url.toString();
-  };
+const sortProcessData = (
+  data: Process[],
+  column: 'batchJobId' | 'insertDate' | 'nric' | 'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage',
+  direction: 'asc' | 'desc'
+): Process[] => {
+  return [...data].sort((a, b) => {
+    const aValue = a[column];
+    const bValue = b[column];
+    if (column === 'insertDate') {
+      const dateA = new Date(aValue || '').getTime();
+      const dateB = new Date(bValue || '').getTime();
+      return direction === 'asc' ? dateA - dateB : dateB - dateA;
+    }
+    const strA = String(aValue || '').toLowerCase();
+    const strB = String(bValue || '').toLowerCase();
+    return direction === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
+  });
+};
 
-  // Add sorting function for process data
-  const sortProcessData = (
-    data: Process[],
-    column: 'batchJobId' | 'insertDate' | 'nric' | 'personnelNumber' | 'actionType' | 'personnelArea' | 'status' | 'errorMessage',
-    direction: 'asc' | 'desc'
-  ): Process[] => {
-    return [...data].sort((a, b) => {
-      const aValue = a[column];
-      const bValue = b[column];
-
-      if (column === 'insertDate') {
-        const dateA = new Date(aValue || '').getTime();
-        const dateB = new Date(bValue || '').getTime();
-        return direction === 'asc' ? dateA - dateB : dateB - dateA;
-      }
-
-      const strA = String(aValue || '').toLowerCase();
-      const strB = String(bValue || '').toLowerCase();
-      return direction === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    });
-  };
-
-
-  export default function StatusMonitoring({ defaultTab, selectedBatchId: initialBatchId }: StatusMonitoringProps) {
-    const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Processes'>(defaultTab || 'Batch');
+export default function StatusMonitoring({ defaultTab, selectedBatchId: initialBatchId }: StatusMonitoringProps) {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'Overview' | 'Batch' | 'Processes'>(defaultTab || 'Batch');
 
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -136,8 +133,8 @@
       const fetchData = async () => {
         setIsLoading(true);
         const urlParams = new URLSearchParams(window.location.search);
-        const batchIdFromUrl = urlParams.get('batchId');
-        if (batchIdFromUrl && !selectedBatchId) setSelectedBatchId(batchIdFromUrl);
+        const batchJobIdFromUrl = urlParams.get('BatchJobId');
+        if (batchJobIdFromUrl && !selectedBatchId) setSelectedBatchId(batchJobIdFromUrl);
     
         try {
           const fetchUrl = buildProcessUrl({
@@ -148,7 +145,7 @@
             dateRange: selectedDateRange,
             sortColumn,
             sortDirection,
-            batchJobId: batchIdFromUrl || selectedBatchId
+            batchJobId: batchJobIdFromUrl || selectedBatchId
           });
     
           const res = await fetch(fetchUrl);
@@ -252,7 +249,7 @@
     
         const processes: Process[] = json.data.data;
         const headers = [
-          'BATCH ID',
+          'BATCH JOB ID',
           'PROCESS DATE TIME',
           'NRIC',
           'PERNR NUMBER',
@@ -388,11 +385,11 @@
     const handleClearBatchFilter = () => {
       setSelectedBatchId(null);
       setError(null);
-      // Remove batchId from URL without refreshing the page
       const url = new URL(window.location.href);
-      url.searchParams.delete('batchId');
+      url.searchParams.delete('BatchJobId'); 
       window.history.pushState({}, '', url);
     };
+    
 
     // Add this section in the JSX where you want to show the batch filter
     const renderBatchFilter = () => {
@@ -400,7 +397,7 @@
         return (
           <div className="flex items-center space-x-2 px-2 py-1 bg-blue-50 border border-blue-200 rounded-md ">
             <span className="text-sm text-blue-700">
-              Filtered by Batch ID: {selectedBatchId}
+              Filtered by BatchJobID: {selectedBatchId}
             </span>
             <button
               onClick={handleClearBatchFilter}
@@ -617,7 +614,7 @@
                           onClick={() => handleSort('batchJobId')}
                         >
                           <div className="flex items-center space-x-1">
-                            <span>Batch ID</span>
+                            <span>Batch Job Id</span>
                             {sortColumn === 'batchJobId' && (
                               <svg
                                 className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}

@@ -48,7 +48,9 @@ export async function GET(request: NextRequest) {
     const dateRange = searchParams.get('dateRange') || 'Last 7 days';
     const sortColumn = searchParams.get('sortColumn') || 'effectiveDate';
     const sortDirection = searchParams.get('sortDirection') || 'desc';
-    const batchId = searchParams.get('batchId');
+    const batchJobId = searchParams.get('BatchJobId');
+
+
 
     console.log('Process API Request Params:', {
       page,
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest) {
       dateRange,
       sortColumn,
       sortDirection,
-      batchId
+      batchJobId
     });
 
     // Calculate date range
@@ -107,9 +109,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Add batchId if provided
-    if (batchId) {
-      apiQueryParams.append('batchId', batchId);
-      console.log('🔍 Filtering by batchId:', batchId);
+    if (batchJobId) {
+      apiQueryParams.append('batchJobId', batchJobId);
+      console.log('🔍 Filtering by batchJobId:', batchJobId);
     }
 
     // Ensure we have a valid URL
@@ -163,10 +165,10 @@ export async function GET(request: NextRequest) {
       dataPerPage: apiResponse.data.dataPerPage,
       sortColumn,
       sortDirection,
-      batchId,
+      batchJobId,
       sampleData: apiResponse.data.data.slice(0, 2).map(item => ({
         dataID: item.dataID,
-        batchId: item.batchJobId,
+        batchJobId: item.batchJobId,
         status: item.status,
         rawItem: item // Log the entire item to see all available fields
       }))

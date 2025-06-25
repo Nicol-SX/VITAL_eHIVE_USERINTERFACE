@@ -1,10 +1,5 @@
 {
-  "/_not-found": "app/_not-found.js",
-  "/batch/page": "app/batch/page.js",
-  "/api/hrp/processes/status/route": "app/api/hrp/processes/status/route.js",
   "/page": "app/page.js",
-  "/processes/page": "app/processes/page.js",
-  "/api/hrp/status-monitoring/route": "app/api/hrp/status-monitoring/route.js",
-  "/api/hrp/processes/route": "app/api/hrp/processes/route.js",
-  "/api/hrp/batch/route": "app/api/hrp/batch/route.js"
+  "/batch/page": "app/batch/page.js",
+  "/processes/page": "app/processes/page.js"
 }
