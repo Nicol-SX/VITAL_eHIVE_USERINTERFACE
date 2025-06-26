@@ -10,16 +10,19 @@ export interface StatusMonitoringProps {
 export interface ProcessAction {
     id: number;
     dataID: number;
+    userID: number;
     status: number;
     type: number;
     comment: string;
     insertDate: string;
     effectiveDate: string;
     updateDate: string;
+    seq: number;
   }
 
  export interface Process {
     dataID: number;
+    seq:number;
     insertDate: string;
     updateDate: string;
     effectiveDate: string;

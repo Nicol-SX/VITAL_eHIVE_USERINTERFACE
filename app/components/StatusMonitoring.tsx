@@ -102,7 +102,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
     // checkbox functions
     const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
     const [selectAll, setSelectAll] = useState(false);
-    const allIds = activeTab === 'Processes' ? processes.map(p => p.dataID) : transactions.map(t => t.id);
+    const allIds = activeTab === 'Processes' ? processes.map(p => p.seq) : transactions.map(t => t.id);
 
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedProcess, setSelectedProcess] = useState<Process | null>(null);
@@ -202,7 +202,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
 
     //Checkbox handlers
     const handleSelectAll = () => {
-      const failIds = processes.filter(p => p.status.toUpperCase() === "FAIL").map(p => p.dataID);
+      const failIds = processes.filter(p => p.status.toUpperCase() === "FAIL").map(p => p.seq);
       if (selectAll) {
         setSelectedRows(new Set());
         setSelectAll(false);
@@ -212,13 +212,13 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
       }
     };
 
-    const handleCheckboxChange = (id: number) => {
+    const handleCheckboxChange = (seq: number) => {
       setSelectedRows((prev) => {
         const updated = new Set(prev);
-        if (updated.has(id)) {
-          updated.delete(id);
+        if (updated.has(seq)) {
+          updated.delete(seq);
         } else {
-          updated.add(id);
+          updated.add(seq);
         }
         setSelectAll(updated.size === allIds.length);
         return updated;
@@ -305,7 +305,8 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
       newStatus: 'Reviewed' | 'Others',
       rawComment: string,
       dataID: number,
-      type: number 
+      type: number,
+      seq: number
     ) => {
       try {
         const isoTimestamp = toLocalISOString(new Date());
@@ -317,7 +318,8 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
             comment: newStatus === 'Others' ? rawComment : '',
             insertDate: isoTimestamp, 
             type,
-            dataID,
+            dataID: dataID ?? 0,
+            seq: seq ?? 0
           }),
         });
 
@@ -329,12 +331,13 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
           comment: rawComment.trim(),
           type,
           dataID,
-          status: newStatus === 'Reviewed'?0:1
+          status: newStatus === 'Reviewed'?0:1,
+          seq:seq
         };
 
         setProcesses(prev =>
           prev.map(p =>
-            p.dataID === dataID ? { ...p, status: newStatus, action: newStatus === 'Others'
+            p.seq === seq && p.dataID === dataID ? { ...p, status: newStatus, action: newStatus === 'Others'
               ? returnAction
               :undefined
             } : p
@@ -353,9 +356,9 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
       // Batch update
       if (!selectedProcess && selectedRows.size > 0) {
         Array.from(selectedRows).forEach((id) => {
-          const proc = processes.find((p) => p.dataID === id);
+          const proc = processes.find((p) => p.seq === id);
           if (proc) {
-            handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags);
+            handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags, proc.seq);
           }
         });
         setSelectedRows(new Set());
@@ -364,7 +367,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
       }
       // Single row update
       if (selectedProcess) {
-        handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags);
+        handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags, selectedProcess.seq);
         setIsStatusModalOpen(false);
         setSelectedProcess(null);
       }
@@ -397,7 +400,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
         return (
           <div className="flex items-center space-x-2 px-2 py-1 bg-blue-50 border border-blue-200 rounded-md ">
             <span className="text-sm text-blue-700">
-              Filtered by BatchJobID: {selectedBatchId}
+              Filtered by Batch ID: {selectedBatchId}
             </span>
             <button
               onClick={handleClearBatchFilter}
@@ -432,7 +435,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
           <div className="sticky top-0 z-[100] bg-white">
             <div className="border-b">
               <div className="px-6 py-4">
-                <h1 className="text-xl font-medium">Status Monitoring</h1>
+                <h1 className="text-xl font-medium"> HRPS</h1>
               </div>
             </div>
 
@@ -614,7 +617,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
                           onClick={() => handleSort('batchJobId')}
                         >
                           <div className="flex items-center space-x-1">
-                            <span>Batch Job Id</span>
+                            <span>Batch Id</span>
                             {sortColumn === 'batchJobId' && (
                               <svg
                                 className={`w-4 h-4 transition-transform ${sortDirection === 'asc' ? 'transform rotate-180' : ''}`}
@@ -783,13 +786,13 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
                         </tr>
                       ) : processes && processes.length > 0 ? (
                         processes.map((process) => (
-                          <tr key={process.dataID} className={`border-b border-gray-200 transition-colors ${selectedRows.has(process.dataID) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>                            
+                          <tr key={process.seq} className={`border-b border-gray-200 transition-colors ${selectedRows.has(process.seq) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>                            
                             <td className="w-[2%] px-4 py-2">
                               {process.status === 'Fail' && (
                               <input
                                 type="checkbox"
-                                checked={selectedRows.has(process.dataID)}
-                                onChange={() => handleCheckboxChange(process.dataID)}
+                                checked={selectedRows.has(process.seq)}
+                                onChange={() => handleCheckboxChange(process.seq)}
                                 className="form-checkbox h-4 w-4 text-[#1a4f82] focus:ring-[#1a4f82] border-gray-300 rounded"
                               />)}
                             </td>

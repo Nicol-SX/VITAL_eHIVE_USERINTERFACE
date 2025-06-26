@@ -294,7 +294,7 @@ export default function BatchComponent({ defaultTab = 'Batch' }: BatchProps) {
         <div className="sticky top-0 z-10 bg-white">
           <div className="border-b">
             <div className="px-4 sm:px-6 py-4">
-              <h1 className="text-lg sm:text-xl font-medium">Batch Monitoring</h1>
+              <h1 className="text-lg sm:text-xl font-medium">HRPS</h1>
             </div>
           </div>
 
