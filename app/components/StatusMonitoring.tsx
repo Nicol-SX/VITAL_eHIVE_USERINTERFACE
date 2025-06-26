@@ -314,9 +314,10 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            // MELVIN: Change This Into Ur User ID Later After Authentication
+            userID: 1000,
             status: newStatus === 'Reviewed' ? 0 : 1,
             comment: newStatus === 'Others' ? rawComment : '',
-            insertDate: isoTimestamp, 
             type,
             dataID: dataID ?? 0,
             seq: seq ?? 0
@@ -327,8 +328,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
         if (data.error) throw new Error(data.error);
 
         const returnAction = data.action || {
-          insertDate: isoTimestamp,
-          comment: rawComment.trim(),
+          comment: data.data.comment,
           type,
           dataID,
           status: newStatus === 'Reviewed'?0:1,
@@ -337,9 +337,9 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
 
         setProcesses(prev =>
           prev.map(p =>
-            p.seq === seq && p.dataID === dataID ? { ...p, status: newStatus, action: newStatus === 'Others'
+            p.seq === seq && p.dataID === dataID && p.processFlags == type ? { ...p, status: newStatus, action: newStatus === 'Others'
               ? returnAction
-              :undefined
+              : undefined
             } : p
           )
         );
@@ -826,7 +826,7 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
                             <td className="w-[15%] px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                               {process.status === 'Others' && process.action && process.action.comment && (
                                 <div className="text-sm text-gray-500 whitespace-normal break-words">
-                                  ({formatDate(process.action.insertDate)}):&nbsp;{process.action.comment}
+                                  {process.action.comment}
                                 </div>
                               )}
                               {/* if there’s no action yet and status is FAIL, show Update button */}
