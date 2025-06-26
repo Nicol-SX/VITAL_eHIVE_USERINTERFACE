@@ -306,7 +306,8 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
       rawComment: string,
       dataID: number,
       type: number,
-      seq: number
+      seq: number,
+      userID?: number,
     ) => {
       try {
         const isoTimestamp = toLocalISOString(new Date());
@@ -319,7 +320,8 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
             insertDate: isoTimestamp, 
             type,
             dataID: dataID ?? 0,
-            seq: seq ?? 0
+            seq: seq ?? 0,
+            userID: userID ?? null
           }),
         });
 
