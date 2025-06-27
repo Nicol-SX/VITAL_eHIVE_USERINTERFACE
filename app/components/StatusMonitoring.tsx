@@ -202,12 +202,16 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
 
     //Checkbox handlers
     const handleSelectAll = () => {
-      const failIds = processes.filter(p => p.status.toUpperCase() === "FAIL").map(p => p.seq);
+      // If you want across all pages, remove slice() entirely.
+      const visibleSeqs = processes
+        .slice(page * rowsPerPage, (page + 1) * rowsPerPage)
+        .map(p => p.seq);
+    
       if (selectAll) {
         setSelectedRows(new Set());
         setSelectAll(false);
       } else {
-        setSelectedRows(new Set(failIds));
+        setSelectedRows(new Set(visibleSeqs));
         setSelectAll(true);
       }
     };
@@ -306,74 +310,86 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
       rawComment: string,
       dataID: number,
       type: number,
-      seq: number,
-      userID?: number,
+      seq: number
     ) => {
+      console.log('✅ update single:', { dataID, seq, type, newStatus });
+    
       try {
-        const isoTimestamp = toLocalISOString(new Date());
-        const response = await fetch(`${config.API_URL}/hrp/processes/status`, {
+        const res = await fetch(`${config.API_URL}/hrp/processes/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            // MELVIN: Change This Into Ur User ID Later After Authentication
             userID: 1000,
             status: newStatus === 'Reviewed' ? 0 : 1,
             comment: newStatus === 'Others' ? rawComment : '',
             type,
-            dataID: dataID ?? 0,
-            seq: seq ?? 0,
-            userID: userID ?? null
-          }),
+            dataID,
+            seq
+          })
         });
-
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-
-        const returnAction = data.action || {
-          comment: data.data.comment,
+    
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+    
+        const returnAction = json.action || {
+          comment: json.data.comment,
           type,
           dataID,
-          status: newStatus === 'Reviewed'?0:1,
-          seq:seq
+          status: newStatus === 'Reviewed' ? 0 : 1,
+          seq,
+          insertDate: json.data.insertDate
         };
-
+    
+        // ✅ Update only that one row in state
         setProcesses(prev =>
-          prev.map(p =>
-            p.seq === seq && p.dataID === dataID && p.processFlags == type ? { ...p, status: newStatus, action: newStatus === 'Others'
-              ? returnAction
-              : undefined
-            } : p
-          )
+          prev.map(p => {
+            if (p.seq === seq && p.dataID === dataID && p.processFlags === type) {
+              return {
+                ...p,
+                status: newStatus,
+                action: {
+                  ...p.action,
+                  ...returnAction
+                }
+              };
+            }
+            return p;
+          })
         );
-
-        setIsStatusModalOpen(false);
-        setSelectedProcess(null);
-
-      } catch (error) {
-        console.error('Error updating status:', error);
+      } catch (err) {
+        console.error('❌ Failed to update status:', err);
       }
     };
-
-    const onPopupSubmit = (status: 'Reviewed' | 'Others', rawComment?: string) => {
+      
       // Batch update
-      if (!selectedProcess && selectedRows.size > 0) {
-        Array.from(selectedRows).forEach((id) => {
-          const proc = processes.find((p) => p.seq === id);
-          if (proc) {
-            handleStatusUpdate(status, rawComment ?? '', proc.dataID, proc.processFlags, proc.seq);
-          }
-        });
-        setSelectedRows(new Set());
-        setIsStatusModalOpen(false);
-        return;
-      }
-      // Single row update
-      if (selectedProcess) {
-        handleStatusUpdate(status, rawComment ?? '', selectedProcess.dataID, selectedProcess.processFlags, selectedProcess.seq);
-        setIsStatusModalOpen(false);
-        setSelectedProcess(null);
-      }
-    };
+      const onPopupSubmit = async (status: 'Reviewed' | 'Others', rawComment?: string) => {
+        // — single-row update if selectedProcess is set
+        if (selectedProcess) {
+          await handleStatusUpdate(
+            status,
+            rawComment ?? '',
+            selectedProcess.dataID,
+            selectedProcess.processFlags,
+            selectedProcess.seq
+          );
+          setSelectedProcess(null);
+          setIsStatusModalOpen(false);
+          return;   // ← important: prevents falling into batch block
+        }
+      
+        // — batch update only if no selectedProcess and checkboxes are set
+        if (selectedRows.size > 0) {
+          console.log('✅ batch update rows:', Array.from(selectedRows));
+          await Promise.all(
+            Array.from(selectedRows).map(seq => {
+              const p = processes.find(x => x.seq===seq)!;
+              return handleStatusUpdate(status, rawComment ?? '', p.dataID, p.processFlags, p.seq);
+            })
+          );
+          setSelectedRows(new Set());
+          setIsStatusModalOpen(false);
+        }
+      };
 
     // Add handleSort function
     const handleSort = (column: ProcessSortableColumn) => {
@@ -835,8 +851,9 @@ export default function StatusMonitoring({ defaultTab, selectedBatchId: initialB
                               {(!process.action || !process.action.insertDate) && process.status.toUpperCase() === 'FAIL' && (
                                 <button
                                   onClick={() => {
-                                    setSelectedProcess(process);
-                                    setIsStatusModalOpen(true);
+                                    setSelectedRows(new Set());         
+                                    setSelectedProcess(process);         
+                                    setIsStatusModalOpen(true);          
                                   }}
                                   className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-white text-sm font-medium"
                                 >
